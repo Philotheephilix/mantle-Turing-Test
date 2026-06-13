@@ -60,5 +60,9 @@ export interface DeploymentAddresses {
     timestamp: Address;
     limitedCalls: Address;
     perActionCap: Address;
+    /** lifetime cumulative spend cap (budget.totalCap). */
+    erc20TransferAmount: Address;
+    /** transfer-recipient allowlist (budget.allowedRecipients). */
+    allowedRecipients: Address;
   };
 }

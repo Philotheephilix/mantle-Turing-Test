@@ -25,6 +25,8 @@ const addrs: DeploymentAddresses = {
     timestamp: A("c"),
     limitedCalls: A("d"),
     perActionCap: A("e"),
+    erc20TransferAmount: A("f"),
+    allowedRecipients: A("1"),
   },
 };
 

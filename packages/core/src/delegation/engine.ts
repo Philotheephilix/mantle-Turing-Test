@@ -96,6 +96,12 @@ function termsTurnBound(turnManager: Address, roomId: bigint): Hex {
 function termsPerActionCap(token: Address, capWei: bigint): Hex {
   return encodeAbiParameters(parseAbiParameters("address, uint256"), [token, capWei]);
 }
+function termsErc20TransferAmount(token: Address, lifetimeCapWei: bigint): Hex {
+  return encodeAbiParameters(parseAbiParameters("address, uint256"), [token, lifetimeCapWei]);
+}
+function termsAllowedRecipients(token: Address, recipients: Address[]): Hex {
+  return encodeAbiParameters(parseAbiParameters("address, address[]"), [token, recipients]);
+}
 
 function caveat(enforcer: Address, terms: Hex): Caveat {
   return { enforcer, terms, args: "0x" };
@@ -128,17 +134,59 @@ export function buildGameplayCaveats(
   return caveats;
 }
 
-/** Compile the *budget* group into caveats (per-action spend cap on USDC). */
+/**
+ * Compile the *budget* group into caveats: a per-action cap, a lifetime
+ * (totalCap) cap, and a recipient allowlist. All three are emitted so a budget
+ * delegation can never exceed the per-action spend, the lifetime spend, or pay
+ * an unapproved recipient — closing the "per-action cap is unbounded in count"
+ * gap. A totalCap of "0" means "no lifetime spend allowed" and is rejected.
+ */
 export function buildBudgetCaveats(
   config: GameDelegationConfig,
   addrs: DeploymentAddresses,
 ): Caveat[] {
-  return [
+  const { token, perActionCap, totalCap, allowedRecipients } = config.budget;
+  if (token !== "USDC") throw new Error(`unsupported budget token: ${token}`);
+  if (allowedRecipients.length === 0) {
+    throw new Error("budget.allowedRecipients must be non-empty (no unrestricted spend)");
+  }
+  const caveats: Caveat[] = [
+    caveat(addrs.enforcers.perActionCap, termsPerActionCap(addrs.usdc, usdcToWei(perActionCap))),
     caveat(
-      addrs.enforcers.perActionCap,
-      termsPerActionCap(addrs.usdc, usdcToWei(config.budget.perActionCap)),
+      addrs.enforcers.erc20TransferAmount,
+      termsErc20TransferAmount(addrs.usdc, usdcToWei(totalCap)),
+    ),
+    caveat(
+      addrs.enforcers.allowedRecipients,
+      termsAllowedRecipients(addrs.usdc, allowedRecipients),
     ),
   ];
+  return caveats;
+}
+
+/** Build the executionCalldata for a charge: USDC.transfer(recipient, amount). */
+export function buildChargeExecution(
+  addrs: DeploymentAddresses,
+  recipient: Address,
+  amount: string,
+): Hex {
+  const transfer = encodeFunctionData({
+    abi: [
+      {
+        type: "function",
+        name: "transfer",
+        inputs: [
+          { name: "to", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        outputs: [{ name: "", type: "bool" }],
+        stateMutability: "nonpayable",
+      },
+    ],
+    functionName: "transfer",
+    args: [recipient, usdcToWei(amount)],
+  });
+  return encodeExecution(addrs.usdc, 0n, transfer);
 }
 
 // ── signing & encoding ────────────────────────────────────────────────────

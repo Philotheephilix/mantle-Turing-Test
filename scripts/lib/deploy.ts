@@ -73,6 +73,8 @@ export function deployNexus(p: DeployParams): DeployedNexus {
       timestamp: j.enforcers.timestamp,
       limitedCalls: j.enforcers.limitedCalls,
       perActionCap: j.enforcers.perActionCap,
+      erc20TransferAmount: j.enforcers.erc20TransferAmount,
+      allowedRecipients: j.enforcers.allowedRecipients,
     },
   };
 }

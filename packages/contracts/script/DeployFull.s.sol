@@ -13,6 +13,8 @@ import {SystemAllowlistEnforcer} from "../src/enforcers/SystemAllowlistEnforcer.
 import {TimestampEnforcer} from "../src/enforcers/TimestampEnforcer.sol";
 import {LimitedCallsEnforcer} from "../src/enforcers/LimitedCallsEnforcer.sol";
 import {PerActionCapEnforcer} from "../src/enforcers/PerActionCapEnforcer.sol";
+import {ERC20TransferAmountEnforcer} from "../src/enforcers/ERC20TransferAmountEnforcer.sol";
+import {AllowedRecipientsEnforcer} from "../src/enforcers/AllowedRecipientsEnforcer.sol";
 
 /**
  * @notice Full Nexus deployment for the live test suite: World + the real
@@ -65,6 +67,8 @@ contract DeployFull is Script {
         TimestampEnforcer timestamp = new TimestampEnforcer();
         LimitedCallsEnforcer limitedCalls = new LimitedCallsEnforcer();
         PerActionCapEnforcer perActionCap = new PerActionCapEnforcer();
+        ERC20TransferAmountEnforcer erc20TransferAmount = new ERC20TransferAmountEnforcer();
+        AllowedRecipientsEnforcer allowedRecipients = new AllowedRecipientsEnforcer();
 
         vm.stopBroadcast();
 
@@ -74,7 +78,9 @@ contract DeployFull is Script {
         vm.serializeAddress(enf, "systemAllowlist", address(systemAllowlist));
         vm.serializeAddress(enf, "timestamp", address(timestamp));
         vm.serializeAddress(enf, "limitedCalls", address(limitedCalls));
-        string memory enforcersJson = vm.serializeAddress(enf, "perActionCap", address(perActionCap));
+        vm.serializeAddress(enf, "perActionCap", address(perActionCap));
+        vm.serializeAddress(enf, "erc20TransferAmount", address(erc20TransferAmount));
+        string memory enforcersJson = vm.serializeAddress(enf, "allowedRecipients", address(allowedRecipients));
 
         string memory root = "deployment";
         vm.serializeUint(root, "chainId", block.chainid);

@@ -33,6 +33,7 @@ export {
   encodePermissionContext,
   encodeExecution,
   buildMoveExecution,
+  buildChargeExecution,
   buildRedeemCalldata,
   usdcToWei,
   MANAGER_ABI,
