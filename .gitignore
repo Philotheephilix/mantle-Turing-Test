@@ -24,3 +24,6 @@ packages/contracts/lib/
 
 # deployment artifacts with addresses are kept, but local runs are not
 scripts/.live-state.json
+
+# local deployment address dumps
+packages/contracts/deployments/*.json
