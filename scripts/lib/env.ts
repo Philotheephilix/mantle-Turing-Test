@@ -20,10 +20,13 @@ export interface NexusEnv {
   rpcUrl: string;
   usdc: `0x${string}`;
   explorer: string;
-  /** primary funded account (deployer + player 1) */
+  /** primary funded account (deployer + relayer) */
   account: ReturnType<typeof privateKeyToAccount>;
+  /** raw key for the primary account (needed to construct wallet clients in deploy). */
+  privateKey: `0x${string}`;
   /** optional second player */
   account2?: ReturnType<typeof privateKeyToAccount>;
+  privateKey2?: `0x${string}`;
   worldAddress?: `0x${string}`;
   delegationManager?: `0x${string}`;
   oneShot?: { apiKey: string; apiSecret: string; endpoint: string; webhookUrl?: string };
@@ -79,7 +82,9 @@ export function loadEnv(): NexusEnv {
     usdc: cfg.usdc as `0x${string}`,
     explorer: cfg.explorer,
     account,
+    privateKey: pk,
     account2,
+    privateKey2: pk2,
     worldAddress: optionalKey("WORLD_ADDRESS"),
     delegationManager: optionalKey("DELEGATION_MANAGER_ADDRESS"),
     oneShot,
