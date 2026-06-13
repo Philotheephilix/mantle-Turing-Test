@@ -1,4 +1,4 @@
-import { type TableSchema } from "./types.js";
+import type { TableSchema } from "./types.js";
 
 /** Economy config for a game (entry fee + pot rules). */
 export interface EconomyConfig {

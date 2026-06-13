@@ -1,5 +1,12 @@
-import { NexusError, type Address, type Hex, asAddress } from "@nexus/types";
-import { BaseError, type Account, type Chain, type PublicClient, type WalletClient, type Transport } from "viem";
+import { type Address, type Hex, NexusError, asAddress } from "@nexus/types";
+import {
+  type Account,
+  BaseError,
+  type Chain,
+  type PublicClient,
+  type Transport,
+  type WalletClient,
+} from "viem";
 import type {
   Bundle,
   BundleHandle,

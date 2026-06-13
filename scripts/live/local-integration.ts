@@ -20,8 +20,14 @@ async function main() {
       chain: localChain,
       rpcUrl: ANVIL_RPC,
       chainId: ANVIL_CHAIN_ID,
-      relayer: { key: ANVIL_ACCOUNTS.deployer.key as Hex, address: ANVIL_ACCOUNTS.deployer.address as Address },
-      player: { key: ANVIL_ACCOUNTS.player.key as Hex, address: ANVIL_ACCOUNTS.player.address as Address },
+      relayer: {
+        key: ANVIL_ACCOUNTS.deployer.key as Hex,
+        address: ANVIL_ACCOUNTS.deployer.address as Address,
+      },
+      player: {
+        key: ANVIL_ACCOUNTS.player.key as Hex,
+        address: ANVIL_ACCOUNTS.player.address as Address,
+      },
       player2Address: ANVIL_ACCOUNTS.player2.address as Address,
     };
     failures = await runIntegration(target);

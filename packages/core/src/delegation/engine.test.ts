@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { privateKeyToAccount } from "viem/accounts";
 import { recoverTypedDataAddress } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { describe, expect, it } from "vitest";
 import { DELEGATION_TYPES, eip712Domain } from "./eip712.js";
 import {
   buildBudgetCaveats,
@@ -52,7 +52,10 @@ describe("caveat builders", () => {
   });
 
   it("omits turn/limit when not configured", () => {
-    const cfg = { ...config, gameplay: { allowedSystems: config.gameplay.allowedSystems, expiresAt: 1 } };
+    const cfg = {
+      ...config,
+      gameplay: { allowedSystems: config.gameplay.allowedSystems, expiresAt: 1 },
+    };
     expect(buildGameplayCaveats(cfg, addrs, 1n)).toHaveLength(2);
   });
 

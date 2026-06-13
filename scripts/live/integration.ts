@@ -14,20 +14,20 @@ import {
   encodePermissionContext,
   signDelegation,
 } from "@nexus/core";
+import { DELEGATION_TYPES, eip712Domain } from "@nexus/core";
 import { DirectRelayer, revertDataOf } from "@nexus/relayer";
 import type { Address, Hex } from "@nexus/types";
 import {
+  http,
   type Chain,
   createPublicClient,
   createWalletClient,
   decodeErrorResult,
   encodeFunctionData,
   hashTypedData,
-  http,
   parseEventLogs,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { DELEGATION_TYPES, eip712Domain } from "@nexus/core";
 import { type DeployedNexus, deployNexus } from "../lib/deploy.js";
 import { assert, log } from "../lib/log.js";
 
@@ -231,7 +231,11 @@ export async function runIntegration(t: IntegrationTarget): Promise<number> {
     const receipt = await redeemMove(configFor(d.counterGameSystemId, future));
     const playerAfter = await pub.getBalance({ address: player.address });
     const relayerAfter = await pub.getBalance({ address: t.relayer.address });
-    const moved = parseEventLogs({ abi: COUNTER_ABI, eventName: "CounterGame_Moved", logs: receipt.logs });
+    const moved = parseEventLogs({
+      abi: COUNTER_ABI,
+      eventName: "CounterGame_Moved",
+      logs: receipt.logs,
+    });
     assert(moved.length === 1, "expected one CounterGame_Moved event");
     assert(
       moved[0]!.args.player.toLowerCase() === player.address.toLowerCase(),
@@ -245,7 +249,12 @@ export async function runIntegration(t: IntegrationTarget): Promise<number> {
     );
   }
 
-  async function expectRevert(name: string, cfg: GameDelegationConfig, expectedError: string, salt: bigint) {
+  async function expectRevert(
+    name: string,
+    cfg: GameDelegationConfig,
+    expectedError: string,
+    salt: bigint,
+  ) {
     try {
       await redeemMove(cfg, salt);
       log.fail(`${name}: expected revert ${expectedError} but redemption succeeded`);
@@ -264,14 +273,26 @@ export async function runIntegration(t: IntegrationTarget): Promise<number> {
   }
 
   log.step("TEST 2 — SystemAllowlistEnforcer rejects a non-allowed system");
-  await expectRevert("SystemAllowlist", configFor(`0x${"ab".repeat(32)}` as Hex, future), "SystemNotAllowed", 2n);
+  await expectRevert(
+    "SystemAllowlist",
+    configFor(`0x${"ab".repeat(32)}` as Hex, future),
+    "SystemNotAllowed",
+    2n,
+  );
 
   log.step("TEST 3 — TimestampEnforcer rejects an expired delegation");
-  await expectRevert("Timestamp", configFor(d.counterGameSystemId, Date.now() - 3600_000, false), "DelegationExpired", 3n);
+  await expectRevert(
+    "Timestamp",
+    configFor(d.counterGameSystemId, Date.now() - 3600_000, false),
+    "DelegationExpired",
+    3n,
+  );
 
   log.step("TEST 4 — TurnBoundEnforcer rejects a move out of turn");
   await expectRevert("TurnBound", configFor(d.counterGameSystemId, future), "NotYourTurn", 4n);
 
-  log.title(failures === 0 ? `${t.label}: ALL LIVE TESTS PASSED` : `${t.label}: ${failures} FAILED`);
+  log.title(
+    failures === 0 ? `${t.label}: ALL LIVE TESTS PASSED` : `${t.label}: ${failures} FAILED`,
+  );
   return failures;
 }

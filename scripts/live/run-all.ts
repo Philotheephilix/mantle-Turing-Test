@@ -9,7 +9,7 @@
  * Run: pnpm --filter @nexus/scripts live
  */
 import type { Address, Hex } from "@nexus/types";
-import { formatEther, http, createPublicClient } from "viem";
+import { http, createPublicClient, formatEther } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { ANVIL_ACCOUNTS, ANVIL_CHAIN_ID, ANVIL_RPC, startAnvil } from "../lib/anvil.js";
 import { loadEnv } from "../lib/env.js";
@@ -31,8 +31,14 @@ async function runLocal(): Promise<number> {
       chain: localChain,
       rpcUrl: ANVIL_RPC,
       chainId: ANVIL_CHAIN_ID,
-      relayer: { key: ANVIL_ACCOUNTS.deployer.key as Hex, address: ANVIL_ACCOUNTS.deployer.address as Address },
-      player: { key: ANVIL_ACCOUNTS.player.key as Hex, address: ANVIL_ACCOUNTS.player.address as Address },
+      relayer: {
+        key: ANVIL_ACCOUNTS.deployer.key as Hex,
+        address: ANVIL_ACCOUNTS.deployer.address as Address,
+      },
+      player: {
+        key: ANVIL_ACCOUNTS.player.key as Hex,
+        address: ANVIL_ACCOUNTS.player.address as Address,
+      },
       player2Address: ANVIL_ACCOUNTS.player2.address as Address,
     });
   } finally {
@@ -55,7 +61,9 @@ async function runOnChain(): Promise<number | "skipped"> {
     );
     return "skipped";
   }
-  log.info(`Relayer ${env.account.address} funded with ${formatEther(bal)} ETH on ${env.chain.name}`);
+  log.info(
+    `Relayer ${env.account.address} funded with ${formatEther(bal)} ETH on ${env.chain.name}`,
+  );
 
   // The player only signs — generate throwaway keys (need no funds).
   const playerKey = generatePrivateKey();

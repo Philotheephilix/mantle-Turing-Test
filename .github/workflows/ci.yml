@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  contracts:
+    name: Contracts (forge)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Install forge deps
+        run: forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts
+      - name: forge build
+        run: forge build
+      - name: forge test (1000 fuzz runs)
+        run: FOUNDRY_PROFILE=ci forge test -vv
+
+  packages:
+    name: TS packages (build + test + typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # TS packages only (the contracts package is built/tested in the `contracts` job via forge).
+      - run: pnpm -r --filter '!@nexus/contracts' build
+      - run: pnpm -r --filter '!@nexus/contracts' test
+      - run: pnpm -r --filter '!@nexus/contracts' --filter '!@nexus/scripts' exec tsc --noEmit
+      - run: pnpm lint
+
+  live-anvil:
+    name: Live integration (local anvil — zero mocks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Install forge deps
+        run: cd packages/contracts && forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Run the live zero-mock suite against a local anvil chain
+        run: pnpm --filter @nexus/scripts exec tsx live/local-integration.ts

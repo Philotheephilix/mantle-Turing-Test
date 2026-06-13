@@ -15,7 +15,10 @@ const uno = defineGame({
     PlayCardSystem: "./systems/PlayCard.sol",
     DrawSystem: "./systems/Draw.sol",
   },
-  economy: { entryFee: { amount: "5", token: "USDC" }, pot: { type: "winner-take-all", rake: "0.02" } },
+  economy: {
+    entryFee: { amount: "5", token: "USDC" },
+    pot: { type: "winner-take-all", rake: "0.02" },
+  },
 });
 
 describe("defineGame", () => {
@@ -25,13 +28,15 @@ describe("defineGame", () => {
   });
 
   it("rejects an invalid name", () => {
-    expect(() => defineGame({ name: "Bad Name", tables: { X: { a: t.bool } }, systems: {} })).toThrow();
+    expect(() =>
+      defineGame({ name: "Bad Name", tables: { X: { a: t.bool } }, systems: {} }),
+    ).toThrow();
   });
 
   it("rejects an empty table", () => {
-    expect(() =>
-      defineGame({ name: "g", tables: { Empty: {} }, systems: {} }),
-    ).toThrow(/no fields/);
+    expect(() => defineGame({ name: "g", tables: { Empty: {} }, systems: {} })).toThrow(
+      /no fields/,
+    );
   });
 
   it("rejects an out-of-range rake", () => {
@@ -53,7 +58,9 @@ describe("manifest", () => {
 
   it("derives stable table/system ids", () => {
     const m = buildManifest(uno);
-    expect(m.tables.find((x) => x.name === "Player")?.id).toBe(resourceId("uno", "table", "Player"));
+    expect(m.tables.find((x) => x.name === "Player")?.id).toBe(
+      resourceId("uno", "table", "Player"),
+    );
     expect(m.systems.find((x) => x.name === "PlayCardSystem")?.id).toBe(
       resourceId("uno", "system", "PlayCardSystem"),
     );
