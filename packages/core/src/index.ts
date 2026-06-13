@@ -54,6 +54,18 @@ export {
   EIP712_DOMAIN_VERSION,
 } from "./delegation/eip712.js";
 
+// ── randomness facade (design §9, phase-09) ──
+export {
+  random,
+  dice,
+  commitmentFor,
+  commitRevealCommit,
+  commitRevealReveal,
+  fastCalldata,
+  RANDOMNESS_COORDINATOR_ABI,
+} from "./randomness/index.js";
+export type { RngTier, RandomnessCall, CommitRevealOpts } from "./randomness/index.js";
+
 // re-export the shared error/type surface for convenience
 export { NexusError } from "@nexus/types";
 export type { NexusErrorCode } from "@nexus/types";
