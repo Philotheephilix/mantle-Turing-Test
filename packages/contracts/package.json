@@ -1,0 +1,13 @@
+{
+  "name": "@nexus/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nexus onchain game engine — World ECS, System base, ERC-7710 caveat enforcers, Pot escrow.",
+  "license": "MIT",
+  "scripts": {
+    "setup": "forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts",
+    "build": "forge build",
+    "test": "forge test",
+    "clean": "forge clean"
+  }
+}
