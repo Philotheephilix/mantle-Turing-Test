@@ -19,20 +19,32 @@ import {ITurnManager} from "./TurnManager.sol";
  */
 contract CounterGameSystem is System {
     address public immutable turnManager;
+    address public admin;
 
     error CounterGame_NotYourTurn();
     error CounterGame_Finished();
+    error CounterGame_NotAdmin();
 
     event CounterGame_Moved(uint256 indexed roomId, address indexed player, uint256 value);
     event CounterGame_Won(uint256 indexed roomId, address indexed winner);
 
     constructor(address _turnManager) {
         turnManager = _turnManager;
+        admin = msg.sender;
+    }
+
+    /// @dev Wire the trusted router (the World) once, after both are deployed. The
+    ///      World is deployed before the game, so it cannot be passed in the ctor.
+    function setTrustedRouter(address router) external {
+        if (msg.sender != admin) revert CounterGame_NotAdmin();
+        _setTrustedRouter(router);
     }
 
     /// @notice Increment the room counter on the caller's turn. Returns the winner
     ///         address once the target is reached (address(0) otherwise).
-    function increment(uint256 roomId, uint256 target) external returns (address winner) {
+    /// @dev `onlyWorld` rejects direct calls: a direct caller cannot spoof a victim
+    ///      by appending trailing bytes — it reverts before executing.
+    function increment(uint256 roomId, uint256 target) external onlyWorld returns (address winner) {
         IWorld world = IWorld(msg.sender); // World routed this call
         address player = _msgSender();
 

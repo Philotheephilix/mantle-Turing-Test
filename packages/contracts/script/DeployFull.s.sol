@@ -45,6 +45,11 @@ contract DeployFull is Script {
         world.grantWriteAccess(CounterTable.tableId(), address(game));
         world.setTrustedForwarder(address(manager));
 
+        // Wire the game's trusted router to the World (deployed above) so the game
+        // honors the appended sender only on the World-routed path, and `onlyWorld`
+        // rejects spoofed direct calls.
+        game.setTrustedRouter(address(world));
+
         tm.authorize(address(game), true); // game may advance()
         tm.authorize(msg.sender, true); // deployer may seat the room
         tm.setTrustedRouter(address(world));

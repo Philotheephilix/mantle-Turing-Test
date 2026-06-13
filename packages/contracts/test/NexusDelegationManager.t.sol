@@ -48,6 +48,7 @@ contract NexusDelegationManagerTest is Test {
         CounterTable.register(IWorld(address(world)));
         world.registerSystem(GAME_SYSTEM_ID, address(game), false);
         world.grantWriteAccess(CounterTable.tableId(), address(game));
+        game.setTrustedRouter(address(world));
         tm.authorize(address(game), true);
 
         // LIVE manager as the World's trusted forwarder

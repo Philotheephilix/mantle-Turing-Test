@@ -10,6 +10,10 @@ import {System} from "../src/system/System.sol";
 contract EchoSystem is System {
     event Echo(address sender);
 
+    function setTrustedRouter(address router) external {
+        _setTrustedRouter(router);
+    }
+
     function whoAmI() external returns (address) {
         address s = _msgSender();
         emit Echo(s);
@@ -38,6 +42,7 @@ contract WorldTest is Test {
         f[0] = "value";
         world.registerTable(TABLE_ID, bytes32(uint256(1)), bytes32(uint256(1)), f);
         world.registerSystem(SYSTEM_ID, address(echo), false);
+        echo.setTrustedRouter(address(world));
     }
 
     function _key(uint256 k) internal pure returns (bytes32[] memory key) {

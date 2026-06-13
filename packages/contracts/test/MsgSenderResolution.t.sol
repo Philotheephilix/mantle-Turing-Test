@@ -7,6 +7,10 @@ import {System} from "../src/system/System.sol";
 import {MockForwarder} from "./mocks/MockForwarder.sol";
 
 contract WhoSystem is System {
+    function setTrustedRouter(address router) external {
+        _setTrustedRouter(router);
+    }
+
     function whoAmI() external view returns (address) {
         return _msgSender();
     }
@@ -24,6 +28,9 @@ contract MsgSenderResolutionTest is Test {
         world = new World();
         who = new WhoSystem();
         world.registerSystem(SYSTEM_ID, address(who), false);
+        // wire the system's trusted router to the World so it honors the appended
+        // canonical sender only on the World-routed path
+        who.setTrustedRouter(address(world));
         forwarder = new MockForwarder(world);
     }
 

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {
     Caveat,
     Delegation,
@@ -34,7 +35,7 @@ import {
  *         with a concrete `delegate` may only be redeemed when
  *         `msg.sender == delegate`.
  */
-contract NexusDelegationManager is IDelegationManager {
+contract NexusDelegationManager is IDelegationManager, ReentrancyGuard {
     using ECDSA for bytes32;
 
     // ── EIP-712 type hashes ──
@@ -63,6 +64,12 @@ contract NexusDelegationManager is IDelegationManager {
     error UnauthorizedRedeemer(address expected, address actual);
     error UnsupportedChainLength();
     error ExecutionFailed();
+    /// @notice executionCalldata was shorter than the ERC-7579 single-execution
+    ///         header (target 20 + value 32 = 52 bytes).
+    error InvalidExecutionCalldata();
+    /// @notice The manager holds no ETH and is non-payable; non-zero `value` in a
+    ///         decoded execution is unsupported.
+    error NonZeroValueUnsupported();
 
     // ── events ──
     event Redeemed(
@@ -134,7 +141,7 @@ contract NexusDelegationManager is IDelegationManager {
         bytes[] calldata permissionContexts,
         ModeCode[] calldata modes,
         bytes[] calldata executionCallDatas
-    ) external {
+    ) external nonReentrant {
         if (permissionContexts.length != modes.length || modes.length != executionCallDatas.length) {
             revert BatchLengthMismatch();
         }
@@ -175,6 +182,9 @@ contract NexusDelegationManager is IDelegationManager {
 
         // 4) execute the single action with ERC-2771 trailing-sender append
         (address target, uint256 value, bytes calldata callData) = _decodeExecution(executionCalldata);
+        // The manager is non-payable and holds no ETH; reject any non-zero value
+        // up front with a named error rather than failing opaquely in target.call.
+        if (value != 0) revert NonZeroValueUnsupported();
         bytes memory payload = abi.encodePacked(callData, delegation.delegator);
         (bool ok, bytes memory ret) = target.call{value: value}(payload);
         if (!ok) {
@@ -202,6 +212,9 @@ contract NexusDelegationManager is IDelegationManager {
         pure
         returns (address target, uint256 value, bytes calldata callData)
     {
+        // Guard the slice with a named error instead of an opaque array-bounds
+        // panic when the header (target 20 + value 32) is missing.
+        if (executionCalldata.length < 52) revert InvalidExecutionCalldata();
         target = address(bytes20(executionCalldata[0:20]));
         value = uint256(bytes32(executionCalldata[20:52]));
         callData = executionCalldata[52:];

@@ -15,6 +15,10 @@ import {ICaveatEnforcer, ModeCode} from "../delegation/IDelegation.sol";
  *         passes to enforcers. We decode it via calldata slicing.
  */
 abstract contract CaveatEnforcerBase is ICaveatEnforcer {
+    /// @notice executionCalldata was shorter than the ERC-7579 single-execution
+    ///         header (target 20 + value 32 = 52 bytes).
+    error InvalidExecutionCalldata();
+
     /// @inheritdoc ICaveatEnforcer
     function afterHook(
         bytes calldata,
@@ -32,6 +36,7 @@ abstract contract CaveatEnforcerBase is ICaveatEnforcer {
         pure
         returns (address target, uint256 value, bytes calldata callData)
     {
+        if (executionCalldata.length < 52) revert InvalidExecutionCalldata();
         target = address(bytes20(executionCalldata[0:20]));
         value = uint256(bytes32(executionCalldata[20:52]));
         callData = executionCalldata[52:];

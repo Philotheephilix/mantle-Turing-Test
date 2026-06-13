@@ -47,6 +47,9 @@ contract CounterGameTest is Test {
         // grant the game system write access to the Counter table
         world.grantWriteAccess(CounterTable.tableId(), address(game));
 
+        // wire the game's trusted router to the World (gates onlyWorld + seam)
+        game.setTrustedRouter(address(world));
+
         // authorize the game system to advance turns
         tm.authorize(address(game), true);
 

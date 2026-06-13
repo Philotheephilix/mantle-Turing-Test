@@ -43,7 +43,8 @@ contract TurnManager is System {
     }
 
     address public admin;
-    address public trustedRouter; // the World; when it calls, appended sender is trusted
+    // `trustedRouter` (the World; when it calls, appended sender is trusted) is
+    // inherited from System and gates the redemption-seam trust.
     mapping(address caller => bool) public authorized;
 
     mapping(uint256 roomId => Turn) internal _turn;
@@ -82,7 +83,7 @@ contract TurnManager is System {
     }
 
     function setTrustedRouter(address router) external onlyAdmin {
-        trustedRouter = router;
+        _setTrustedRouter(router);
     }
 
     /// @dev Reporter resolution: only trust the ERC-2771 appended sender when the

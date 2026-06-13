@@ -8,18 +8,16 @@ pragma solidity ^0.8.23;
  *         vendoring the full framework so the package compiles deterministically
  *         and stays Base-only and small. They are *signature-compatible* with the
  *         canonical framework: enforcers written against `ICaveatEnforcer` here
- *         will be callable by the real on-chain `DelegationManager` at runtime.
+ *         are callable by a framework-style manager.
  *
- * @dev    LIVE INTEGRATION NOTE / REDEMPTION RISK:
- *         On Base and Base-Sepolia the CANONICAL deployed MetaMask
- *         `DelegationManager` is used at runtime — we do NOT deploy our own. The
- *         address below is a placeholder constant to be filled from MetaMask's
- *         published deployments.
- *
- *         TODO(base-deploy): set DELEGATION_MANAGER to the canonical MetaMask
- *         Delegation Framework `DelegationManager` address on Base mainnet, and a
- *         Base-Sepolia variant for testnet, sourced from:
- *         https://docs.metamask.io/delegation-toolkit/ (deployments registry).
+ * @dev    LIVE INTEGRATION NOTE:
+ *         Nexus ships its OWN ERC-7710-style `NexusDelegationManager` (a real
+ *         on-chain manager, NOT a mock). These interfaces are signature-compatible
+ *         with MetaMask's framework, but Nexus deploys and uses its own manager
+ *         with its own EIP-712 domain ("Nexus Game Delegation", version "1").
+ *         There is no dependency on a canonical MetaMask deployment at runtime: the
+ *         manager address is whatever `NexusDelegationManager` is deployed to and
+ *         is wired into the World via `World.setTrustedForwarder(manager)`.
  */
 
 /// @dev ERC-7579 execution mode code. The DelegationManager passes this through
@@ -88,8 +86,8 @@ interface IDelegationManager {
     ) external;
 }
 
-/// @notice Canonical deployment pointers for the live redemption integration.
-library DelegationFramework {
-    // TODO(base-deploy): fill from MetaMask's published Base deployments.
-    address internal constant DELEGATION_MANAGER = address(0);
-}
+// NOTE: The previous `DelegationFramework.DELEGATION_MANAGER` constant (a dead
+// address(0) placeholder for a canonical MetaMask deployment) has been REMOVED.
+// Nexus deploys its own `NexusDelegationManager`; there is no external canonical
+// manager pointer. The live manager address is resolved at deploy time and wired
+// into the World via `setTrustedForwarder`.
