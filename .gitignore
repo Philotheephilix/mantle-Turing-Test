@@ -1,0 +1,26 @@
+node_modules/
+dist/
+out/
+cache/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# env / secrets — NEVER commit
+.env
+.env.*
+!.env.example
+
+# foundry
+packages/contracts/out/
+packages/contracts/cache/
+packages/contracts/broadcast/**/dry-run/
+# forge dependencies — fetched via `pnpm --filter @nexus/contracts setup` (forge install)
+packages/contracts/lib/
+
+# logs
+*.log
+.DS_Store
+
+# deployment artifacts with addresses are kept, but local runs are not
+scripts/.live-state.json

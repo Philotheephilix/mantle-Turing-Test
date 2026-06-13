@@ -1,0 +1,10 @@
+packages:
+  - "packages/*"
+  - "examples/*"
+  - "scripts"
+verifyDepsBeforeRun: false
+onlyBuiltDependencies:
+  - "@biomejs/biome"
+  - esbuild
+allowBuilds:
+  esbuild: set this to true or false
