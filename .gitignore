@@ -27,3 +27,21 @@ scripts/.live-state.json
 
 # local deployment address dumps
 packages/contracts/deployments/*.json
+
+# example local env (hardcoded testnet key — never commit)
+examples/**/.env.local
+examples/.shared-env.local
+examples/**/node_modules/
+examples/**/.next/
+examples/**/test-results/
+examples/**/playwright-report/
+
+# example runtime secrets (generated player keys) — never commit
+examples/**/players.local.json
+examples/**/.players.json
+examples/**/playwright/.auth/
+examples/**/.pw-user-data/
+examples/**/out/
+examples/**/cache/
+examples/**/broadcast/
+examples/**/.last-run.json
