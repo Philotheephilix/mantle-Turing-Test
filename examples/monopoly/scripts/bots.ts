@@ -1,16 +1,18 @@
 /**
- * The MONOPOLY bot driver — runs the bot players.
+ * The MONOPOLY bot driver — runs the bot players with a REAL strategy via the SDK.
  *
  *   pnpm --filter @nexus-examples/monopoly bots          # default 2 bots
  *
- * Each bot has a generated + funded key (from players.local.json), signs its OWN
- * delegations (gameplay + budget) with its OWN key, pays the buy-in via x402 (real
- * USDC from its wallet → Pot), and on its turn submits a gasless dice roll. When a
- * bot lands on an owned property it PAYS RENT (real x402). Bots NEVER buy — only the
- * human buys — so the human deterministically reaches the property target and wins.
+ * Each bot has a generated + funded key (players.local.json), signs its OWN gameplay
+ * + budget delegation with its OWN key, pays the x402 buy-in (real USDC → Pot) and,
+ * on its turn, drives one action at a time through the authoritative full-rules
+ * server (/api/act): roll the gasless on-chain dice, buy affordable properties, build
+ * monopolies when flush, leave jail, and end its turn. Mortgaging to cover a debt is
+ * handled automatically by the server's rules engine. The bot decides each move with
+ * lib/bot-strategy from the live snapshot — the same SDK rails the human uses.
  *
- * This script also orchestrates the game: it calls /api/new-game (human seat 0 +
- * bots), so the human's browser just connects, discovers its seat, pays, and plays.
+ * This script also orchestrates the game: it calls /api/new-game (human seat 0 + bots)
+ * so the human's browser just connects, joins (pays), and plays.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -20,12 +22,15 @@ import type { SignedDelegation } from "@nexus/core";
 import { getEngine, signBudgetDelegation, signGameplayDelegation } from "../lib/engine";
 import { deployment } from "../lib/deployment";
 import { ENTRY_FEE_USDC } from "../lib/config";
+import { decideBotAction } from "../lib/bot-strategy";
+import type { GameSnapshot } from "../lib/monopoly-rules";
 
 const SERVER = process.env.MONOPOLY_BACKEND_URL ?? "http://localhost:8791";
 const PLAYERS = join(import.meta.dirname, "..", "players.local.json");
 const FEE = process.env.ENTRY_FEE ?? ENTRY_FEE_USDC;
-// Budget caps must cover one charge (perAction) and the bot's lifetime spend.
-const PER_ACTION_CAP = process.env.PER_ACTION_CAP ?? "0.5";
+// Budget caps must cover one charge (perAction) and the bot's lifetime spend. With
+// the $1 = 0.0001 USDC scale, even a $2000 hotel is 0.2 USDC; lifetime stays small.
+const PER_ACTION_CAP = process.env.PER_ACTION_CAP ?? "0.3";
 const TOTAL_CAP = process.env.TOTAL_CAP ?? "5";
 
 interface PlayerKey { role: "human" | "bot"; index: number; privateKey: Hex; address: Address }
@@ -46,10 +51,33 @@ async function getState(): Promise<any> {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Map the public /api/state payload into the GameSnapshot shape bot-strategy reads. */
+function toSnapshot(st: any): GameSnapshot {
+  const properties: GameSnapshot["properties"] = {};
+  for (const [k, v] of Object.entries(st.properties ?? {})) properties[Number(k)] = v as any;
+  return {
+    roomId: st.roomId,
+    players: (st.players ?? []).map((p: any) => ({
+      id: p.address.toLowerCase(), name: p.name, role: p.role, cash: p.cash, position: p.position,
+      inJail: p.inJail, jailTurns: 0, getOutCards: p.getOutCards ?? 0, bankrupt: p.bankrupt,
+    })),
+    properties,
+    order: (st.players ?? []).map((p: any) => p.address.toLowerCase()),
+    turnIndex: 0,
+    round: st.round ?? 1,
+    doublesCount: 0,
+    pending: st.pending ?? null,
+    rolledThisTurn: st.rolledThisTurn ?? false,
+    winner: st.winner ?? null,
+    cardLog: st.cardLog ?? [],
+  };
+}
+
 async function main() {
   const { players } = JSON.parse(readFileSync(PLAYERS, "utf8")) as { players: PlayerKey[] };
   const human = players.find((p) => p.role === "human");
-  const bots = players.filter((p) => p.role === "bot");
+  const maxBots = process.env.MONOPOLY_BOTS ? Number(process.env.MONOPOLY_BOTS) : Infinity;
+  const bots = players.filter((p) => p.role === "bot").slice(0, maxBots);
   if (!human || bots.length === 0) throw new Error("players.local.json needs a human + ≥1 bot (run fund-players)");
 
   await getEngine();
@@ -66,65 +94,64 @@ async function main() {
       const account = privateKeyToAccount(b.privateKey);
       const signedGameplay: SignedDelegation = await signGameplayDelegation(account, BigInt(roomId));
       const signedBudget: SignedDelegation = await signBudgetDelegation(account, deployment.pot, PER_ACTION_CAP, TOTAL_CAP);
-      return { ...b, account, signedGameplay, signedBudget, paid: false };
+      return { ...b, account, signedGameplay, signedBudget, joined: false };
     }),
   );
 
-  // Each bot pays its buy-in (real x402). A failure (e.g. a drained wallet) is
-  // non-fatal: the bot still takes its turns so the game completes.
+  // Each bot joins (caches its delegations + pays its buy-in via x402).
   for (const b of botCtx) {
-    const r = await post("/api/charge", { player: b.address, signedBudget: b.signedBudget });
+    const r = await post("/api/join", { player: b.address, signedGameplay: b.signedGameplay, signedBudget: b.signedBudget });
     if (!r.body.ok) {
-      console.warn(`[bots] bot#${b.index} buy-in skipped: ${r.body.error?.slice?.(0, 120) ?? r.body.error}`);
+      console.warn(`[bots] bot#${b.index} join skipped: ${r.body.error?.slice?.(0, 140) ?? r.body.error}`);
       continue;
     }
-    b.paid = true;
-    console.log(`[bots] bot#${b.index} BUY-IN ${FEE} USDC — tx ${r.body.txHash}`);
+    b.joined = true;
+    console.log(`[bots] bot#${b.index} JOINED — buy-in ${FEE} USDC tx ${r.body.txHash}`);
   }
 
-  const DEADLINE = Date.now() + 9 * 60_000;
+  const DEADLINE = Date.now() + 25 * 60_000;
   while (Date.now() < DEADLINE) {
     const st = await getState();
     if (!st.ok) { await sleep(1500); continue; }
-    // STOP the instant a winner exists — no more rolls (saves gas + noise).
     if (st.winner) {
       console.log(`[bots] game over — winner ${st.winner}; payout tx ${st.payoutTx}`);
       return;
     }
     const current: Address | null = st.currentTurn;
     const bot = botCtx.find((b) => current && b.address.toLowerCase() === current.toLowerCase());
-    if (!bot) { await sleep(1500); continue; }
+    if (!bot) { await sleep(1200); continue; }
 
-    // Find this bot's seat to see if it has a pending action (rent) to resolve first.
-    const seat = (st.seats as any[]).find((s) => s.address.toLowerCase() === bot.address.toLowerCase());
-    const pending = seat?.pending as { kind: "buy" | "rent"; spaceId: number } | null;
-
+    const snap = toSnapshot(st);
+    const decision = decideBotAction(snap, bot.address.toLowerCase());
     try {
-      if (pending?.kind === "rent") {
-        const r = await post("/api/rent", { player: bot.address, signedBudget: bot.signedBudget });
-        // A 409 "game already won" (the human won between our read and this submit) is
-        // benign — stop. Other rejections (stale turn) just retry next tick.
-        if (r.body.winner || /already won/i.test(r.body.error ?? "")) { console.log(`[bots] game over — stopping.`); return; }
-        if (!r.body.ok) { console.log(`[bots] bot#${bot.index} rent rejected: ${r.body.error}`); await sleep(1500); continue; }
-        console.log(`[bots] bot#${bot.index} PAID RENT — tx ${r.body.txHash}`);
-      } else if (pending?.kind === "buy") {
-        // Bots NEVER buy (only the human buys, so the human is the deterministic
-        // winner). Decline the pending buy so the bot can roll again next turn —
-        // the property stays unowned for the human to claim.
-        const r = await post("/api/skip", { player: bot.address });
-        if (!r.body.ok) { console.log(`[bots] bot#${bot.index} skip rejected: ${r.body.error}`); await sleep(1500); continue; }
-        console.log(`[bots] bot#${bot.index} declined to buy.`);
-      } else {
-        const r = await post("/api/roll", { player: bot.address, signedGameplay: bot.signedGameplay });
-        if (/already won/i.test(r.body.error ?? "")) { console.log(`[bots] game over — stopping.`); return; }
-        if (!r.body.ok) { console.log(`[bots] bot#${bot.index} roll rejected: ${r.body.error}`); await sleep(1500); continue; }
-        console.log(`[bots] bot#${bot.index} rolled ${r.body.die1}+${r.body.die2} → ${r.body.space} (${r.body.pending?.kind ?? "free"}) — tx ${r.body.txHash}`);
+      let action: string;
+      let spaceId: number | undefined;
+      switch (decision.kind) {
+        case "payJail": action = "payJail"; break;
+        case "roll": action = "roll"; break;
+        case "buy": action = "buy"; break;
+        case "decline": action = "decline"; break;
+        case "build": action = "build"; spaceId = decision.spaceId; break;
+        case "end": default: action = "end"; break;
       }
+      const r = await post("/api/act", { player: bot.address, action, spaceId });
+      if (/already won|game over/i.test(r.body.error ?? "") || r.body.winner) {
+        console.log(`[bots] game over — stopping.`);
+        return;
+      }
+      if (!r.body.ok) {
+        // 409 (stale turn / nonce) → retry next tick.
+        await sleep(1200);
+        continue;
+      }
+      const tag = action === "build" ? `build ${decision.kind === "build" ? decision.spaceId : ""}` : action;
+      const dice = r.body.dice ? ` ${r.body.dice[0]}+${r.body.dice[1]}` : "";
+      console.log(`[bots] bot#${bot.index} ${tag}${dice} — ${(r.body.log ?? []).join("; ")}${r.body.txHash ? ` (x402 ${r.body.txHash.slice(0, 12)}…)` : ""}`);
     } catch (err) {
       console.log(`[bots] bot#${bot.index} error:`, err instanceof Error ? err.message : err);
-      await sleep(1500);
+      await sleep(1200);
     }
-    await sleep(800);
+    await sleep(500);
   }
   console.log("[bots] deadline reached without a winner.");
 }

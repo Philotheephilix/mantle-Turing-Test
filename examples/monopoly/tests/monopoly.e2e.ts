@@ -48,7 +48,12 @@ test.beforeAll(async () => {
   humanKey = human.privateKey;
   humanAddress = human.address;
 
-  context = await chromium.launchPersistentContext(USER_DATA_DIR, { headless: true, viewport: { width: 1280, height: 900 } });
+  context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+    headless: true,
+    viewport: { width: 1280, height: 900 },
+    // Record the real full-game session to a video demo (flushed on context.close()).
+    recordVideo: { dir: join(import.meta.dirname, "..", "demos", "monopoly-video"), size: { width: 1280, height: 900 } },
+  });
   // Inject the FUNDED human key into the guest wallet localStorage BEFORE any page
   // script runs, so the in-browser guest wallet IS the funded seat-0 player.
   await context.addInitScript(
@@ -66,9 +71,23 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   // Teardown must not throw if the context is already closed.
   try {
-    await context?.close();
+    await context?.close(); // flushes the recorded .webm
   } catch {
     /* already closed */
+  }
+  // Promote the recorded video to a stable demo path.
+  try {
+    const { readdirSync, renameSync, mkdirSync } = await import("node:fs");
+    const vdir = join(import.meta.dirname, "..", "demos", "monopoly-video");
+    const demos = join(import.meta.dirname, "..", "demos");
+    mkdirSync(demos, { recursive: true });
+    const webm = readdirSync(vdir).find((f) => f.endsWith(".webm"));
+    if (webm) {
+      renameSync(join(vdir, webm), join(demos, "monopoly-demo.webm"));
+      console.log("[e2e] demo video saved:", join(demos, "monopoly-demo.webm"));
+    }
+  } catch (e) {
+    console.log("[e2e] video promotion skipped:", e instanceof Error ? e.message : String(e));
   }
 });
 
@@ -128,49 +147,45 @@ test("multiplayer Monopoly: human pays buy-in (on-chain, own wallet) → plays t
   console.log(`[e2e] verified on-chain: buy-in USDC Transfer(human ${humanAddress} → Pot) = ${Number(feeValue) / 1e6} USDC`);
   expect(feeValue).toBeGreaterThan(0n);
 
-  // 4) Play to a WIN. On the human's turn: roll (gasless) until it lands on an
-  //    unowned property, then BUY (real x402). Repeat until the human owns the target
-  //    and the winner banner appears.
+  // 4) Play the FULL game to a REAL win (last solvent player after real bankruptcies,
+  //    or the documented round-cap richest-player safety net). On the human's turn:
+  //    leave jail → buy affordable properties → end the turn → roll. The bots play
+  //    via the backend script. The WIN GATE is the BACKEND state (source of truth:
+  //    winner + payoutTx), polled each iteration — NOT the flaky DOM banner.
   const winnerBanner = page.getByTestId("winner-banner");
   const rollBtn = page.getByTestId("roll-btn");
   const buyBtn = page.getByTestId("buy-btn");
-  const rentBtn = page.getByTestId("rent-btn");
+  const endBtn = page.getByTestId("end-btn");
+  const payJailBtn = page.getByTestId("payjail-btn");
 
-  // Plain drive loop (NOT toPass): each iteration claims a pending buy/rent (→ reaches
-  // the win) or rolls on our turn. The WIN GATE is the BACKEND state (the source of
-  // truth: winner + payoutTx), polled each iteration — NOT only the flaky DOM banner.
-  // isVisible() returns false immediately for absent elements (no auto-wait stall).
-  //
-  // The drive deadline (900s) is well under the per-test timeout (1_200s) so we ALWAYS
-  // assert/exit before Playwright force-closes the browser context — even with the
-  // earlier connect + buy-in phases consuming part of the budget.
-  const deadline = Date.now() + 900_000;
+  const deadline = Date.now() + 2_400_000;
   let backendWinner: string | null = null;
   let backendPayoutTx: string | null = null;
   while (Date.now() < deadline) {
-    // Source-of-truth win check (backend), robust to a stale/un-updated UI.
     const st = await backendState();
     if (st?.winner && st?.payoutTx) {
       backendWinner = String(st.winner).toLowerCase();
       backendPayoutTx = String(st.payoutTx);
       break;
     }
-    // Drive the human's turn through the real UI when possible.
-    if (await buyBtn.isVisible().catch(() => false)) {
+    if (await payJailBtn.isVisible().catch(() => false)) {
+      await payJailBtn.click().catch(() => {});
+      await page.waitForTimeout(2200);
+    } else if (await buyBtn.isVisible().catch(() => false)) {
       await buyBtn.click().catch(() => {});
-      await page.waitForTimeout(2500);
-    } else if (await rentBtn.isVisible().catch(() => false)) {
-      await rentBtn.click().catch(() => {});
-      await page.waitForTimeout(2500);
+      await page.waitForTimeout(2200);
+    } else if (await endBtn.isVisible().catch(() => false)) {
+      await endBtn.click().catch(() => {});
+      await page.waitForTimeout(2000);
     } else if (await rollBtn.isEnabled().catch(() => false)) {
       await rollBtn.click().catch(() => {});
-      await page.waitForTimeout(2500);
+      await page.waitForTimeout(2200);
     } else {
       await page.waitForTimeout(1500); // not our turn — wait for the bots to cycle
     }
   }
 
-  expect(backendWinner, "the human should reach the property target and win (backend winner)").toBeTruthy();
+  expect(backendWinner, "the game should reach a real last-solvent winner (backend winner)").toBeTruthy();
   expect(backendPayoutTx, "the backend should report a payout tx").toBeTruthy();
   console.log("[e2e] backend winner:", backendWinner, "payout:", backendPayoutTx);
 
@@ -196,6 +211,8 @@ test("multiplayer Monopoly: human pays buy-in (on-chain, own wallet) → plays t
   const payoutValue = BigInt(payoutTransfer!.data);
   console.log(`[e2e] verified on-chain: pot payout USDC Transfer(Pot → ${winner}) = ${Number(payoutValue) / 1e6} USDC`);
   expect(payoutValue).toBeGreaterThan(0n);
-  // The human (seat 0, the only buyer) is the deterministic winner.
-  expect(winner).toBe(humanAddress.toLowerCase());
+  // The winner is the LAST SOLVENT player (real bankruptcy-based finish) — NOT a fake
+  // first-to-N shortcut. It may be the human or a bot; assert the on-chain payout
+  // recipient matches the backend's reported winner (a real participant).
+  expect(winner).toBe(backendWinner);
 });

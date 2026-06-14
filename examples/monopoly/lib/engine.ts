@@ -93,6 +93,60 @@ export const MONOPOLY_ABI = [
   },
   {
     type: "function",
+    name: "recordAction",
+    inputs: [
+      { name: "roomId", type: "uint256" },
+      { name: "action", type: "bytes32" },
+      { name: "spaceId", type: "uint256" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "endTurn",
+    inputs: [{ name: "roomId", type: "uint256" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "recordOwner",
+    inputs: [
+      { name: "roomId", type: "uint256" },
+      { name: "spaceId", type: "uint256" },
+      { name: "owner", type: "address" },
+      { name: "price", type: "uint256" },
+      { name: "rent", type: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setCash",
+    inputs: [
+      { name: "roomId", type: "uint256" },
+      { name: "player", type: "address" },
+      { name: "cash", type: "uint256" },
+      { name: "position", type: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "recordBankrupt",
+    inputs: [
+      { name: "roomId", type: "uint256" },
+      { name: "player", type: "address" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "cashOf",
     inputs: [
       { name: "roomId", type: "uint256" },
@@ -139,6 +193,7 @@ export const TURN_MANAGER_ABI = [
     stateMutability: "nonpayable",
   },
   { type: "function", name: "getCurrent", inputs: [{ name: "roomId", type: "uint256" }], outputs: [{ name: "", type: "address" }], stateMutability: "view" },
+  { type: "function", name: "advance", inputs: [{ name: "roomId", type: "uint256" }], outputs: [], stateMutability: "nonpayable" },
 ] as const;
 
 export const POT_ABI = [
@@ -176,7 +231,8 @@ export const USDC_ABI = [
 
 export interface MonopolyEngine {
   publicClient: PublicClient;
-  relayerWallet: WalletClient;
+  /** Retry-wrapped relayer wallet (fresh nonce + gas bump + receipt-resubmit on every send). */
+  relayerWallet: RelayerWallet;
   relayer: LocalAccount;
   addrs: DeploymentAddresses;
 }
@@ -190,7 +246,8 @@ export function getEngine(): Promise<MonopolyEngine> {
 async function boot(): Promise<MonopolyEngine> {
   const relayer = privateKeyToAccount(RELAYER_PRIVATE_KEY);
   const publicClient = createPublicClient({ chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) }) as PublicClient;
-  const relayerWallet = createWalletClient({ account: relayer, chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
+  const rawWallet = createWalletClient({ account: relayer, chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
+  const relayerWallet = wrapRetryingWallet(rawWallet, publicClient, relayer);
   return { publicClient, relayerWallet, relayer, addrs: addresses };
 }
 
@@ -221,6 +278,99 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 4, retryOnRevert = 
     }
   }
   throw last instanceof Error ? last : new Error(String(last));
+}
+
+/** Flatten an error (message + details + nested cause chain) for classification. */
+function errText(e: unknown): string {
+  const parts: string[] = [];
+  let cur: unknown = e;
+  for (let i = 0; i < 6 && cur; i++) {
+    const o = cur as { message?: unknown; details?: unknown; shortMessage?: unknown; cause?: unknown };
+    parts.push(String(o.shortMessage ?? ""), String(o.details ?? ""), String(o.message ?? ""));
+    cur = o.cause;
+  }
+  return parts.join(" ");
+}
+
+/** Classify a relayer-submission error (shared-key contention / flaky RPC vs a real revert). */
+function retryClass(e: unknown): "nonce" | "underpriced" | "rpc" | "revert" | "fatal" {
+  const m = errText(e);
+  if (/replacement transaction underpriced|transaction underpriced|fee too low|max fee per gas less than|priority fee/i.test(m))
+    return "underpriced";
+  if (/nonce too low|nonce too high|invalid nonce|already known|already imported|nonce has already been used|replacement/i.test(m))
+    return "nonce";
+  if (/missing or invalid parameters|timeout|timed out|fetch failed|socket|other side closed|ECONNRESET|ETIMEDOUT|service unavailable|bad gateway|rate limit|429|502|503|504|invalid json|could not be found|header not found|block is out of range/i.test(m))
+    return "rpc";
+  if (/insufficient funds|exceeds the balance|gas required exceeds/i.test(m)) return "fatal";
+  if (isOnChainRevert(e)) return "revert";
+  return "rpc";
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Retry-wrapped relayer wallet (same robustness as the UNO example). Serializes
+ * sends (process-wide mutex), fetches a FRESH pending nonce + BUMPS priority fee
+ * per attempt (wins replacement races), backs off with jitter on
+ * underpriced/nonce/RPC errors, and additionally RE-SUBMITS if a sent tx's
+ * receipt isn't seen within 45s (cross-process nonce eviction). `fatal` never
+ * retries; reverts get a few attempts (read-after-write lag) then surface.
+ */
+type RelayerWallet = {
+  writeContract: (args: Record<string, unknown>) => Promise<Hex>;
+  sendTransaction: (args: Record<string, unknown>) => Promise<Hex>;
+  account: ReturnType<typeof privateKeyToAccount>;
+};
+
+function wrapRetryingWallet(
+  wallet: { writeContract: (a: never) => Promise<Hex>; sendTransaction: (a: never) => Promise<Hex> },
+  publicClient: PublicClient,
+  account: ReturnType<typeof privateKeyToAccount>,
+): RelayerWallet {
+  let chain: Promise<unknown> = Promise.resolve();
+  const MAX = 12;
+
+  async function attempt(kind: "write" | "send", args: Record<string, unknown>): Promise<Hex> {
+    let last: unknown;
+    for (let i = 0; i < MAX; i++) {
+      try {
+        const nonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+        const fees = await publicClient.estimateFeesPerGas().catch(() => ({}) as Record<string, bigint>);
+        const bump = (v?: bigint) => (v ? (v * BigInt(100 + 25 * i)) / 100n : undefined);
+        const gas =
+          fees.maxFeePerGas !== undefined
+            ? { maxFeePerGas: bump(fees.maxFeePerGas), maxPriorityFeePerGas: bump(fees.maxPriorityFeePerGas ?? fees.maxFeePerGas) }
+            : {};
+        const full = { ...args, nonce, ...gas } as never;
+        const hash = kind === "write" ? await wallet.writeContract(full) : await wallet.sendTransaction(full);
+        // Re-submit if the receipt isn't seen in 45s (the tx was likely evicted by a
+        // same-nonce tx from another process sharing this key).
+        const r = await Promise.race([
+          publicClient.waitForTransactionReceipt({ hash }).then((x) => x),
+          sleep(45_000).then(() => null),
+        ]);
+        if (r) return hash; // mined (success or revert — caller's receipt check handles status)
+      } catch (e) {
+        last = e;
+        const cls = retryClass(e);
+        if (cls === "fatal" || (cls === "revert" && i >= 4) || i >= MAX - 1) throw e;
+      }
+      const base = 2000;
+      await sleep(base + i * 1000 + Math.floor(Math.random() * 900));
+    }
+    throw last instanceof Error ? last : new Error(String(last));
+  }
+
+  const run = (kind: "write" | "send", args: Record<string, unknown>): Promise<Hex> => {
+    const p = chain.then(() => attempt(kind, args));
+    chain = p.then(
+      () => undefined,
+      () => undefined,
+    );
+    return p;
+  };
+
+  return { account, writeContract: (a) => run("write", a), sendTransaction: (a) => run("send", a) };
 }
 
 async function submitAndConfirm(
@@ -300,6 +450,51 @@ export async function chargeFromPlayer(
   return { status: "mined", txHash, blockNumber };
 }
 
+/** Redeem a player's gameplay delegation to RECORD a non-roll action on-chain
+ *  (turn-bound, gasless): buy / rent / tax / build / mortgage / jail / end. The
+ *  on-chain Monopoly_Action event is the player's signed acknowledgement of the
+ *  action the authoritative engine resolved. */
+export async function redeemAction(
+  e: MonopolyEngine,
+  signedGameplay: SignedDelegation,
+  roomId: bigint,
+  action: string,
+  spaceId: number,
+  amount: bigint,
+): Promise<{ status: "mined"; txHash: Hex; blockNumber: bigint }> {
+  const tag = actionTag(action);
+  const inner = encodeFunctionData({ abi: MONOPOLY_ABI, functionName: "recordAction", args: [roomId, tag, BigInt(spaceId), amount] });
+  const exec = buildMoveExecution(e.addrs, MONOPOLY_SYSTEM_ID, inner);
+  const ctx = encodePermissionContext(signedGameplay);
+  const data = buildRedeemCalldata(ctx, exec);
+  // A turn-bound revert is deterministic — fail fast.
+  const { txHash, blockNumber } = await withRetry(() => submitAndConfirm(e, data), 3, false);
+  return { status: "mined", txHash, blockNumber };
+}
+
+/** Redeem a player's gameplay delegation to END their turn (turn-bound, gasless) —
+ *  advances the on-chain TurnManager to the next player, signed by the player. */
+export async function redeemEndTurn(
+  e: MonopolyEngine,
+  signedGameplay: SignedDelegation,
+  roomId: bigint,
+): Promise<{ status: "mined"; txHash: Hex; blockNumber: bigint }> {
+  const inner = encodeFunctionData({ abi: MONOPOLY_ABI, functionName: "endTurn", args: [roomId] });
+  const exec = buildMoveExecution(e.addrs, MONOPOLY_SYSTEM_ID, inner);
+  const ctx = encodePermissionContext(signedGameplay);
+  const data = buildRedeemCalldata(ctx, exec);
+  const { txHash, blockNumber } = await withRetry(() => submitAndConfirm(e, data), 3, false);
+  return { status: "mined", txHash, blockNumber };
+}
+
+/** keccak-free bytes32 tag for an action label (right-padded UTF-8, ≤32 bytes). */
+export function actionTag(label: string): Hex {
+  const bytes = new TextEncoder().encode(label);
+  if (bytes.length > 32) throw new Error(`action label too long: ${label}`);
+  const hex = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `0x${hex}${"00".repeat(32 - bytes.length)}` as Hex;
+}
+
 // ── admin / authority ops (relayer is TurnManager admin + game admin + Pot auth) ──
 
 async function adminWrite(e: MonopolyEngine, to: Address, abi: readonly unknown[], fn: string, args: readonly unknown[]): Promise<Hex> {
@@ -331,6 +526,13 @@ export async function settlePot(e: MonopolyEngine, roomId: bigint, winner: Addre
   return adminWrite(e, deployment.pot, POT_ABI, "settle", [roomId, winner]);
 }
 
+/** Advance the on-chain TurnManager by one seat (relayer is authorized). Used to keep
+ *  the strictly-rotating on-chain turn in lockstep with the rules engine, which SKIPS
+ *  bankrupt players. */
+export async function advanceTurnAdmin(e: MonopolyEngine, roomId: bigint): Promise<Hex> {
+  return adminWrite(e, deployment.turnManager, TURN_MANAGER_ABI, "advance", [roomId]);
+}
+
 /** Record a property purchase on-chain (ownership + play-cash ledger). Admin op
  *  routed through World.call so the System resolves _msgSender()==relayer(admin). */
 export async function recordBuy(e: MonopolyEngine, roomId: bigint, spaceId: number, player: Address, price: bigint, rent: bigint): Promise<Hex> {
@@ -341,6 +543,25 @@ export async function recordBuy(e: MonopolyEngine, roomId: bigint, spaceId: numb
 /** Record a rent payment on-chain (play-cash ledger). Admin op. */
 export async function recordRent(e: MonopolyEngine, roomId: bigint, spaceId: number, player: Address): Promise<Hex> {
   const inner = encodeFunctionData({ abi: MONOPOLY_ABI, functionName: "recordRent", args: [roomId, BigInt(spaceId), player] });
+  return adminWrite(e, deployment.world, WORLD_CALL_ABI, "call", [MONOPOLY_SYSTEM_ID, inner]);
+}
+
+/** Set/transfer property ownership on-chain (bankruptcy transfer / clear). Admin op. */
+export async function recordOwner(e: MonopolyEngine, roomId: bigint, spaceId: number, owner: Address, price: bigint, rent: bigint): Promise<Hex> {
+  const inner = encodeFunctionData({ abi: MONOPOLY_ABI, functionName: "recordOwner", args: [roomId, BigInt(spaceId), owner, price, rent] });
+  return adminWrite(e, deployment.world, WORLD_CALL_ABI, "call", [MONOPOLY_SYSTEM_ID, inner]);
+}
+
+/** Mirror a player's authoritative cash + position into the World table. Admin op. */
+export async function setCashOnChain(e: MonopolyEngine, roomId: bigint, player: Address, cashDollars: number, position: number): Promise<Hex> {
+  const cash = BigInt(Math.max(0, Math.round(cashDollars))) * 1_000_000n; // dollars → 6dp ledger
+  const inner = encodeFunctionData({ abi: MONOPOLY_ABI, functionName: "setCash", args: [roomId, player, cash, BigInt(position)] });
+  return adminWrite(e, deployment.world, WORLD_CALL_ABI, "call", [MONOPOLY_SYSTEM_ID, inner]);
+}
+
+/** Emit a bankruptcy event on-chain. Admin op. */
+export async function recordBankrupt(e: MonopolyEngine, roomId: bigint, player: Address): Promise<Hex> {
+  const inner = encodeFunctionData({ abi: MONOPOLY_ABI, functionName: "recordBankrupt", args: [roomId, player] });
   return adminWrite(e, deployment.world, WORLD_CALL_ABI, "call", [MONOPOLY_SYSTEM_ID, inner]);
 }
 

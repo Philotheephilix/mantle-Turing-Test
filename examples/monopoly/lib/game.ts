@@ -25,7 +25,7 @@ export function monopolyGame() {
       },
     },
     systems: { MonopolyGame: "./MonopolyGameSystem.sol" },
-    economy: { entryFee: { amount: "0.10", token: "USDC" }, pot: { type: "winner-take-all", rake: "0" } },
+    economy: { entryFee: { amount: "0.05", token: "USDC" }, pot: { type: "winner-take-all", rake: "0" } },
   });
 }
 

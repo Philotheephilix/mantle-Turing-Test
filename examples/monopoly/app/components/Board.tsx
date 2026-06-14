@@ -1,109 +1,109 @@
 "use client";
 
-import type { Space } from "@/lib/board";
+import { BOARD, BOARD_SIZE, type Space } from "@/lib/board";
+import type { PlayerView, PropertyView } from "@/lib/monopoly-client";
 
 /**
- * A square 4x4 perimeter ring of 12 tiles (the board). Space 0 (GO) is bottom-right;
- * the ring runs counter-clockwise up the right, across the top, down the left, and
- * back along the bottom — the classic Monopoly travel direction. Each tile shows its
- * color band, name, and price; the active tile (player position) and owned tiles are
- * highlighted. The player token hops to its tile.
+ * The full 40-space Monopoly board as an 11x11 perimeter ring. Space 0 (GO) is the
+ * bottom-right corner; the ring runs counter-clockwise (up the right edge, across the
+ * top, down the left, back along the bottom) — the classic travel direction. Each
+ * tile shows its color band, name, and price; owned tiles show the owner's token
+ * color and a house/hotel count; player tokens sit on their current tile.
  */
 
-// grid cells (row,col) in a 4x4 grid for spaceIds 0..11, going around the ring.
-// 0 bottom-right corner, then up the right edge, across top, down left, across bottom.
-const RING: Array<{ r: number; c: number }> = [
-  { r: 4, c: 4 }, // 0 GO (bottom-right)
-  { r: 3, c: 4 }, // 1
-  { r: 2, c: 4 }, // 2
-  { r: 1, c: 4 }, // 3 (top-right corner)
-  { r: 1, c: 3 }, // 4
-  { r: 1, c: 2 }, // 5
-  { r: 1, c: 1 }, // 6 (top-left corner)
-  { r: 2, c: 1 }, // 7
-  { r: 3, c: 1 }, // 8 (Jail) -> down left
-  { r: 4, c: 1 }, // 9 (bottom-left corner)
-  { r: 4, c: 2 }, // 10
-  { r: 4, c: 3 }, // 11
-];
+const SIDE = 11; // 11x11 grid → 40 perimeter cells
 
-function fmtUsdc(units: number): string {
-  return (units / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 0 });
+/** grid (row,col) 1-indexed for spaceId 0..39 going counter-clockwise from GO. */
+function ringCell(id: number): { r: number; c: number } {
+  // 0 bottom-right corner; 1..9 up the right edge; 10 top-right corner;
+  // 11..19 across the top (right→left); 20 top-left; 21..29 down the left;
+  // 30 bottom-left; 31..39 across the bottom (left→right).
+  if (id === 0) return { r: SIDE, c: SIDE };
+  if (id < 10) return { r: SIDE - id, c: SIDE };
+  if (id === 10) return { r: 1, c: SIDE };
+  if (id < 20) return { r: 1, c: SIDE - (id - 10) };
+  if (id === 20) return { r: 1, c: 1 };
+  if (id < 30) return { r: 1 + (id - 20), c: 1 };
+  if (id === 30) return { r: SIDE, c: 1 };
+  return { r: SIDE, c: 1 + (id - 30) };
 }
 
+const TOKEN_COLORS = ["#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899"];
+
 export function Board({
-  board,
-  position,
+  players,
   properties,
-  playerAddress,
+  meAddress,
 }: {
-  board: Space[];
-  position: number;
-  properties: Record<number, string>;
-  playerAddress: string | null;
+  players: PlayerView[];
+  properties: Record<number, PropertyView>;
+  meAddress: string | null;
 }) {
+  const colorOf = (addr: string): string => {
+    const i = players.findIndex((p) => p.address.toLowerCase() === addr.toLowerCase());
+    return TOKEN_COLORS[i % TOKEN_COLORS.length];
+  };
+
   return (
-    <div className="felt rounded-3xl p-3 sm:p-5">
+    <div className="felt rounded-3xl p-2 sm:p-4">
       <div
-        className="relative grid gap-2"
-        style={{ gridTemplateColumns: "repeat(4, 1fr)", gridTemplateRows: "repeat(4, 1fr)", aspectRatio: "1 / 1" }}
+        className="relative grid gap-[3px]"
+        style={{ gridTemplateColumns: `repeat(${SIDE}, 1fr)`, gridTemplateRows: `repeat(${SIDE}, 1fr)`, aspectRatio: "1 / 1" }}
       >
         {/* center medallion */}
-        <div
-          className="flex flex-col items-center justify-center rounded-2xl"
-          style={{ gridColumn: "2 / 4", gridRow: "2 / 4" }}
-        >
+        <div className="flex flex-col items-center justify-center rounded-2xl" style={{ gridColumn: "2 / 11", gridRow: "2 / 11" }}>
           <div className="text-center select-none">
-            <div className="gold-text text-4xl sm:text-6xl font-bold tracking-tight">NEXUS</div>
-            <div className="text-emerald-200/80 text-xs sm:text-sm tracking-[0.3em] mt-1">ONCHAIN MONOPOLY</div>
-            <div className="mt-3 text-[10px] sm:text-xs text-emerald-300/60 uppercase tracking-widest">
-              Base Sepolia · gasless dice · real USDC
+            <div className="gold-text text-3xl sm:text-5xl font-bold tracking-tight">NEXUS</div>
+            <div className="text-emerald-200/80 text-[10px] sm:text-xs tracking-[0.3em] mt-1">ONCHAIN MONOPOLY</div>
+            <div className="mt-3 text-[9px] sm:text-[10px] text-emerald-300/60 uppercase tracking-widest">
+              Base Sepolia · gasless dice · real USDC · full rules
             </div>
           </div>
         </div>
 
-        {board.map((sp) => {
-          const cell = RING[sp.id];
-          const owner = properties[sp.id];
-          const isActive = sp.id === position % board.length;
-          const isOwned = !!owner;
-          const isMine = owner && playerAddress && owner.toLowerCase() === playerAddress.toLowerCase();
+        {BOARD.map((sp) => {
+          const cell = ringCell(sp.id);
+          const pr = properties[sp.id];
+          const owner = pr?.owner ?? null;
+          const here = players.filter((p) => !p.bankrupt && p.position === sp.id);
+          const isCorner = sp.kind === "go" || sp.kind === "jail" || sp.kind === "free" || sp.kind === "gotojail";
           return (
             <div
               key={sp.id}
               data-testid={`tile-${sp.id}`}
-              data-active={isActive ? "1" : "0"}
-              className={`tile relative rounded-lg overflow-hidden flex flex-col ${isActive ? "active animate-pop" : ""} ${isOwned ? "owned" : ""}`}
+              className={`tile relative rounded-[5px] overflow-hidden flex flex-col ${owner ? "owned" : ""}`}
               style={{ gridColumn: cell.c, gridRow: cell.r }}
+              title={sp.name}
             >
-              {sp.kind === "property" && (
-                <div className="h-2.5 w-full" style={{ background: sp.color }} />
-              )}
-              <div className="flex-1 p-1.5 flex flex-col justify-between">
-                <div
-                  className={`leading-tight font-semibold ${sp.kind === "go" || sp.kind === "jail" ? "text-[13px]" : "text-[10px] sm:text-[11px]"}`}
-                >
+              {(sp.kind === "property") && <div className="h-1.5 w-full" style={{ background: sp.color }} />}
+              <div className="flex-1 px-0.5 py-0.5 flex flex-col justify-between min-h-0">
+                <div className={`leading-[1.05] font-semibold ${isCorner ? "text-[7px] sm:text-[8px]" : "text-[6px] sm:text-[7px]"}`}>
                   {sp.name}
                 </div>
-                {sp.kind === "property" && (
-                  <div className="mono text-[9px] text-black/60">${fmtUsdc(sp.price)}</div>
-                )}
-                {sp.kind === "go" && <div className="text-[16px]">→</div>}
+                {sp.price != null && <div className="mono text-[6px] text-black/60">${sp.price}</div>}
               </div>
-              {isOwned && (
-                <div
-                  className={`absolute bottom-0 right-0 px-1 py-0.5 text-[8px] font-bold rounded-tl ${isMine ? "bg-emerald-500 text-black" : "bg-rose-500 text-white"}`}
-                  data-testid={`owned-${sp.id}`}
-                >
-                  {isMine ? "YOU" : "OWNED"}
+              {owner && (
+                <div className="absolute bottom-0 left-0 right-0 h-1" style={{ background: colorOf(owner) }} data-testid={`owned-${sp.id}`} />
+              )}
+              {pr && pr.houses > 0 && (
+                <div className="absolute top-0 right-0 px-0.5 text-[6px] font-bold text-black bg-emerald-300 rounded-bl">
+                  {pr.houses === 5 ? "H" : pr.houses}
                 </div>
               )}
-              {isActive && (
-                <div
-                  data-testid="player-token"
-                  className="token absolute -top-1 -left-1 w-5 h-5 rounded-full animate-hop"
-                  title="You are here"
-                />
+              {pr?.mortgaged && (
+                <div className="absolute top-0 left-0 px-0.5 text-[6px] font-bold text-white bg-rose-600 rounded-br">M</div>
+              )}
+              {here.length > 0 && (
+                <div className="absolute inset-0 flex items-end justify-center gap-0.5 pb-0.5 pointer-events-none">
+                  {here.map((p) => (
+                    <span
+                      key={p.address}
+                      data-testid={p.address.toLowerCase() === meAddress?.toLowerCase() ? "player-token" : undefined}
+                      className="w-2 h-2 rounded-full border border-black/40"
+                      style={{ background: colorOf(p.address) }}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           );
@@ -112,3 +112,6 @@ export function Board({
     </div>
   );
 }
+
+export { BOARD_SIZE };
+export type { Space };

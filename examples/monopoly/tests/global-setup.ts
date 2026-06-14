@@ -46,8 +46,8 @@ async function waitForGame(url: string, timeoutMs: number): Promise<boolean> {
     try {
       const res = await fetch(`${url}/api/state`);
       if (res.ok) {
-        const st = (await res.json()) as { ok?: boolean; seats?: unknown[] };
-        if (st.ok && Array.isArray(st.seats) && st.seats.length > 0) return true;
+        const st = (await res.json()) as { ok?: boolean; players?: unknown[] };
+        if (st.ok && Array.isArray(st.players) && st.players.length > 0) return true;
       }
     } catch {
       /* none yet */
@@ -60,6 +60,11 @@ async function waitForGame(url: string, timeoutMs: number): Promise<boolean> {
 export default async function globalSetup() {
   const tsx = join(ROOT, "node_modules", ".bin", "tsx");
   const pids: number[] = [];
+
+  // A full real Monopoly game is long; run a bounded 2-player (human + 1 bot) game so
+  // the e2e reaches a real last-solvent finish within the test budget. Override with
+  // MONOPOLY_BOTS to run more bots.
+  if (!process.env.MONOPOLY_BOTS) process.env.MONOPOLY_BOTS = "1";
 
   console.log(existsSync(PLAYERS) ? "[e2e-setup] topping up existing players…" : "[e2e-setup] funding new players…");
   await new Promise<void>((resolve, reject) => {

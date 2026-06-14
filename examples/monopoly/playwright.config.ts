@@ -9,12 +9,12 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   testMatch: ["**/*.e2e.ts"],
-  // A real on-chain game (3 players, serialized relayer txs, Base Sepolia
-  // confirmations) plus the connect + buy-in phases can run ~10 min. Give a generous
-  // budget so the in-test drive-loop deadline (set in the test, lower than this) always
-  // fires FIRST — the test asserts/exits cleanly instead of Playwright force-closing the
-  // context mid-loop (the old 600s ≈ game duration left no margin → "page closed").
-  timeout: 1_200_000,
+  // A full real Monopoly game to a last-solvent finish (2 players, serialized relayer
+  // txs, Base Sepolia confirmations) plus the connect + buy-in phases can run ~30 min.
+  // Give a generous budget so the in-test drive-loop deadline (set in the test, lower
+  // than this) always fires FIRST — the test asserts/exits cleanly instead of
+  // Playwright force-closing the context mid-loop.
+  timeout: 2_700_000,
   expect: { timeout: 30_000 },
   fullyParallel: false,
   workers: 1,

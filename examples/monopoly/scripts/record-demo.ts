@@ -102,6 +102,9 @@ function killAll() {
 }
 
 async function main() {
+  // A full real game is long; record a bounded 2-player (human + 1 bot) game.
+  if (!process.env.MONOPOLY_BOTS) process.env.MONOPOLY_BOTS = "1";
+
   // ---- 1. Boot the stack ---------------------------------------------------
   console.log("[demo] funding / topping up players (idempotent)…");
   const fund = spawnSync(tsxBin, ["scripts/fund-players.ts"], { cwd: ROOT, stdio: "inherit", env: process.env });
@@ -114,7 +117,7 @@ async function main() {
 
   console.log("[demo] starting bots…");
   spawnProc(tsxBin, ["scripts/bots.ts"], "bots");
-  await waitFor(`${BACKEND_URL}/api/state`, "bots to create game", 120_000, (j) => j?.ok && Array.isArray(j.seats) && j.seats.length > 0);
+  await waitFor(`${BACKEND_URL}/api/state`, "bots to create game", 120_000, (j) => j?.ok && Array.isArray(j.players) && j.players.length > 0);
   console.log("[demo] game created by bots.");
 
   console.log("[demo] starting next dev on :3030…");
@@ -187,10 +190,11 @@ async function main() {
     // Drive the human's turns through the real UI; the WIN GATE is the BACKEND
     // /api/state (winner + payoutTx) — NOT the DOM banner (known-unreliable).
     const buyBtn = page.getByTestId("buy-btn");
-    const rentBtn = page.getByTestId("rent-btn");
+    const payJailBtn = page.getByTestId("payjail-btn");
     const rollBtn = page.getByTestId("roll-btn");
+    const endBtn = page.getByTestId("end-btn");
     let winner: string | null = null;
-    const deadline = Date.now() + 720_000;
+    const deadline = Date.now() + 2_400_000;
     while (Date.now() < deadline) {
       const st = await backendState();
       if (st?.payoutTx) {
@@ -203,12 +207,16 @@ async function main() {
         await sleep(1500);
         continue;
       }
-      if (await buyBtn.isVisible().catch(() => false)) {
+      // Drive the human's turn through the real UI: leave jail → buy → end → roll.
+      if (await payJailBtn.isVisible().catch(() => false)) {
+        await payJailBtn.click().catch(() => {});
+        await sleep(2000);
+      } else if (await buyBtn.isVisible().catch(() => false)) {
         await buyBtn.click().catch(() => {});
-        await sleep(2500);
-      } else if (await rentBtn.isVisible().catch(() => false)) {
-        await rentBtn.click().catch(() => {});
-        await sleep(2500);
+        await sleep(2200);
+      } else if (await endBtn.isVisible().catch(() => false)) {
+        await endBtn.click().catch(() => {});
+        await sleep(2000);
       } else if (await rollBtn.isEnabled().catch(() => false)) {
         await rollBtn.click().catch(() => {});
         await sleep(2200 + Math.floor(Math.random() * 400));

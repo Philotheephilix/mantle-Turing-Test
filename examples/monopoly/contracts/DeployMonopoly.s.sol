@@ -118,6 +118,7 @@ contract DeployMonopoly is Script {
         vm.serializeAddress(root, "randomness", address(rng));
         vm.serializeAddress(root, "usdc", usdc);
         vm.serializeAddress(root, "pot", address(pot));
+        vm.serializeAddress(root, "relayer", msg.sender);
         vm.serializeUint(root, "roomId", roomId);
         string memory out = vm.serializeString(root, "enforcers", enforcersJson);
 

@@ -66,11 +66,11 @@ export const RELAYER_ADDRESS = (process.env.NEXUS_RELAYER_ADDRESS ||
 export const BASE_SEPOLIA_RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
 export const BASE_SEPOLIA_CHAIN_ID = 84532;
 
-/** The headline x402 amounts (real USDC on Base Sepolia). Kept tiny so each funded
- *  testnet player wallet (~0.6 USDC) covers a buy-in plus several buys/rents. */
-export const ENTRY_FEE_USDC = process.env.ENTRY_FEE_USDC || "0.10";
-export const BUY_USDC = process.env.BUY_USDC || "0.05";
-export const RENT_USDC = process.env.RENT_USDC || "0.02";
+/** The buy-in (real USDC → Pot on Base Sepolia). Every in-game money transfer FROM a
+ *  player (buy / rent / tax / build / fine / card debit) is settled as a real x402
+ *  charge to the Pot at the $1 = 0.0001 USDC scale (see lib/board DOLLAR_TO_USDC), so
+ *  charges are real but tiny. The pot pays the last solvent player on settle. */
+export const ENTRY_FEE_USDC = process.env.ENTRY_FEE_USDC || "0.05";
 
 export function serverConfig(): MonopolyServerConfig {
   const relayerKey = (process.env.NEXUS_RELAYER_PRIVATE_KEY || HARDCODED_RELAYER_KEY) as `0x${string}`;

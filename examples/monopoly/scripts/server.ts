@@ -1,33 +1,40 @@
 /**
- * The authoritative Nexus MONOPOLY game server (Base Sepolia).
+ * The authoritative Nexus MONOPOLY game server (Base Sepolia) — FULL standard rules.
  *
  *   pnpm --filter @nexus-examples/monopoly server     # → http://localhost:8791
  *
- * Holds the relayer wallet (server-only) and a single live game's in-memory board
- * (turn order, board positions, property ownership). Players (the human in the
- * browser + the bots in scripts/bots.ts) sign their OWN delegations with their OWN
- * keys and POST the SignedDelegation here; this server redeems them via the relayer
- * (gasless for players). Every redemption is REAL on-chain:
+ * The full ruleset (board, ownership, cash, houses, mortgages, jail, Chance/Community
+ * Chest decks, rent calc, bankruptcy, win = last solvent player) runs here in
+ * lib/monopoly-rules.ts. This server holds the relayer wallet (server-only) and wires
+ * the rules to the PROVEN on-chain Nexus rails — players never pay gas and never
+ * re-sign mid-game:
  *
- *   - dice roll       → relayer redeems the player's GAMEPLAY delegation (turn-bound)
- *   - buy-in / buy /  → relayer redeems the player's BUDGET delegation: a real USDC
- *     rent              transferFrom(player → Pot), bounded by on-chain spend caps.
+ *   - dice roll          → relayer redeems the player's GAMEPLAY delegation
+ *                          (turn-bound rollAndMove on the RandomnessCoordinator) →
+ *                          the real on-chain dice feed the rules engine.
+ *   - every other action → relayer redeems the player's GAMEPLAY delegation
+ *                          (recordAction, turn-bound) so buy/rent/tax/build/etc. are
+ *                          signed on-chain by the player.
+ *   - every money debit  → real USDC x402 charge: the relayer redeems the player's
+ *     FROM a player          BUDGET delegation as transferFrom(player → Pot, amount),
+ *                          bounded by on-chain spend caps + the Pot recipient
+ *                          allowlist, at the $1 = 0.0001 USDC scale. Credited in the
+ *                          Pot ledger to the eventual winner.
+ *   - win                → the Pot pays the LAST SOLVENT player on-chain.
  *
- * WIN condition (deterministic): the first player to OWN `TARGET_PROPERTIES`
- * properties wins. The human auto-buys every unowned property it lands on; the bots
- * never buy (they only roll + pay rent). So the human accumulates properties and is
- * the deterministic winner; on win the Pot settles to the winner on-chain.
+ * Win is REAL Monopoly bankruptcy (all but one player eliminated). A round cap
+ * (ROUND_CAP) is a documented safety net only (richest net-worth player). NO
+ * first-to-N shortcut.
  *
- * All relayer submissions are serialized through a queue so the single relayer key
- * never collides its nonces.
+ * Each player signs its OWN gameplay + budget delegation with its OWN key and POSTs
+ * them at /api/join; the server caches them and redeems them on the player's behalf.
+ * All relayer submissions are serialized so the single key never collides nonces.
  *
- * API (JSON, CORS-open for the Next dev origin):
- *   POST /api/new-game  { human, bots, fee? }                  → seat room + open pot
- *   POST /api/charge    { player, signedBudget }               → x402 buy-in (USDC→Pot)
- *   POST /api/roll      { player, signedGameplay }             → gasless dice roll
- *   POST /api/buy       { player, signedBudget }               → x402 buy property
- *   POST /api/rent      { player, signedBudget }               → x402 pay rent
- *   GET  /api/state                                            → board, turn, winner
+ * API (JSON, CORS-open):
+ *   POST /api/new-game {human,bots,fee?}                          → seat room + open pot
+ *   POST /api/join     {player,signedGameplay,signedBudget}       → x402 buy-in + cache delegs
+ *   POST /api/act      {player,action,spaceId?}                   → run one action through the rules
+ *   GET  /api/state                                               → full board + turn + winner
  *   GET  /api/health
  */
 import { serve } from "@hono/node-server";
@@ -36,52 +43,47 @@ import type { SignedDelegation } from "@nexus/core";
 import type { Address, Hex } from "@nexus/types";
 import {
   type MonopolyEngine,
+  advanceTurnAdmin,
   chargeFromPlayer,
   creditDeposit,
   getCurrentTurn,
   getEngine,
   openPot,
-  recordBuy,
-  recordRent,
+  recordBankrupt,
+  redeemAction,
+  redeemEndTurn,
   redeemRoll,
   settlePot,
   startTurns,
 } from "../lib/engine";
 import { deployment } from "../lib/deployment";
-import { BOARD, BOARD_SIZE } from "../lib/board";
-import { ENTRY_FEE_USDC, BUY_USDC, RENT_USDC } from "../lib/config";
+import { BOARD, DOLLAR_TO_USDC, dollarsToUsdc } from "../lib/board";
+import { MonopolyRules, ROUND_CAP, type Settlement } from "../lib/monopoly-rules";
+import { ENTRY_FEE_USDC } from "../lib/config";
 
 const PORT = Number(process.env.MONOPOLY_BACKEND_PORT ?? 8791);
-const TARGET_PROPERTIES = Number(process.env.TARGET_PROPERTIES ?? 1);
 
 // ── single live game state (in-memory) ───────────────────────────────────────
 
-type PendingKind = "buy" | "rent" | null;
-interface Pending {
-  kind: Exclude<PendingKind, null>;
-  spaceId: number;
-  owner?: Address; // for rent
-}
-interface Seat {
-  address: Address;
-  role: "human" | "bot";
+interface SeatDelegs {
+  signedGameplay?: SignedDelegation;
+  signedBudget?: SignedDelegation;
   paid: boolean;
-  position: number;
-  pending: Pending | null;
 }
-interface GameState {
+interface Game {
   roomId: bigint;
   fee: string;
-  seats: Seat[];
-  properties: Record<number, Address>; // spaceId -> owner
-  ownedCount: Record<string, number>; // owner -> #properties
-  winner?: Address;
+  rules: MonopolyRules;
+  delegs: Record<string, SeatDelegs>; // player id (lc) → cached delegations
+  names: Record<string, string>;
   payoutTx?: Hex;
   paymentTx: Record<string, Hex>;
+  lastTx: Record<string, Hex>; // player → last settled tx
+  settled: boolean;
 }
 
-let game: GameState | null = null;
-let nextRoom = BigInt(Date.now() % 1_000_000) + 1000n;
+let game: Game | null = null;
+let nextRoom = BigInt(Date.now() % 1_000_000) + 2000n;
 
 // Serialize ALL relayer submissions (single key → sequential nonces).
 let chain: Promise<unknown> = Promise.resolve();
@@ -101,66 +103,100 @@ function json(c: Context, value: unknown, status = 200): Response {
   c.header("content-type", "application/json");
   return c.body(bigintJson(value), status as never);
 }
-
-/**
- * Map an on-chain / game error to a graceful HTTP status + message. EXPECTED reverts
- * (turn-bound enforcer rejecting a stale roll, a benign race like "already owned" or
- * "already won", "no pending …") are NOT server faults — they get 409 Conflict so the
- * browser/bots can simply retry on the next tick. Only a genuine server fault is 500.
- */
 function classifyError(err: unknown): { status: number; message: string } {
-  const message = err instanceof Error ? err.message : String(err);
-  const m = message.toLowerCase();
+  const m = (err instanceof Error ? err.message : String(err)).toLowerCase();
   const expected =
-    m.includes("not your turn") ||
-    m.includes("already won") ||
-    m.includes("already owned") ||
-    m.includes("already paid") ||
-    m.includes("no pending") ||
-    m.includes("resolve pending") ||
-    m.includes("not a seat") ||
-    m.includes("nottheirturn") ||
-    m.includes("notyourturn") ||
-    m.includes("turnbound") ||
-    m.includes("turn-bound");
-  return { status: expected ? 409 : 500, message };
+    m.includes("not your turn") || m.includes("already won") || m.includes("no pending") ||
+    m.includes("not a seat") || m.includes("notyourturn") || m.includes("turn-bound") ||
+    m.includes("game over") || m.includes("nonce");
+  return { status: expected ? 409 : 500, message: err instanceof Error ? err.message : String(err) };
 }
 function failure(c: Context, err: unknown): Response {
   const { status, message } = classifyError(err);
   return json(c, { ok: false, error: message }, status);
 }
 
-function publicGame(g: GameState, currentTurn: Address | null) {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Retry a relayer submission a few times on a transient nonce/relayer collision
+ *  (the relayer key is shared with the UNO example). */
+async function withNonceRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      last = e;
+      const m = (e instanceof Error ? e.message : String(e)).toLowerCase();
+      if (!/nonce|replacement|already known|mempool/.test(m) || i >= tries - 1) throw e;
+      await sleep(1200 * (i + 1));
+    }
+  }
+  throw last instanceof Error ? last : new Error(String(last));
+}
+
+function publicGame(g: Game, currentTurn: Address | null) {
+  const snap = g.rules.snapshot();
   return {
     roomId: g.roomId.toString(),
     fee: g.fee,
-    charges: { buyIn: g.fee, buy: BUY_USDC, rent: RENT_USDC },
-    targetProperties: TARGET_PROPERTIES,
-    seats: g.seats.map((s) => ({ address: s.address, role: s.role, paid: s.paid, position: s.position, pending: s.pending, properties: g.ownedCount[s.address.toLowerCase()] ?? 0 })),
-    properties: g.properties,
-    winner: g.winner ?? null,
-    payoutTx: g.payoutTx ?? null,
     pot: deployment.pot,
     currentTurn,
+    winner: snap.winner,
+    payoutTx: g.payoutTx ?? null,
+    round: snap.round,
+    roundCap: ROUND_CAP,
+    dollarToUsdc: DOLLAR_TO_USDC,
+    pending: snap.pending,
+    rolledThisTurn: snap.rolledThisTurn,
+    players: snap.players.map((p) => ({
+      address: p.id,
+      name: p.name,
+      role: p.role,
+      cash: p.cash,
+      position: p.position,
+      inJail: p.inJail,
+      getOutCards: p.getOutCards,
+      bankrupt: p.bankrupt,
+      netWorth: g.rules.netWorth(p.id),
+      properties: g.rules.ownedBy(p.id),
+      paid: g.delegs[p.id]?.paid ?? false,
+      lastTx: g.lastTx[p.id] ?? null,
+    })),
+    properties: snap.properties,
+    cardLog: snap.cardLog,
   };
 }
 
-function seatOf(g: GameState, addr: Address): Seat | undefined {
-  return g.seats.find((s) => s.address.toLowerCase() === addr.toLowerCase());
-}
-
-/** After a roll lands `seat` on a space, compute its pending buy/rent action. */
-function resolveLanding(g: GameState, seat: Seat): Pending | null {
-  const space = BOARD[seat.position % BOARD_SIZE];
-  if (space.kind !== "property") return null;
-  const owner = g.properties[space.id];
-  if (!owner) return { kind: "buy", spaceId: space.id };
-  if (owner.toLowerCase() !== seat.address.toLowerCase()) return { kind: "rent", spaceId: space.id, owner };
-  return null; // own it
+/**
+ * Settle one engine settlement on-chain. A debit FROM a player is a real USDC x402
+ * charge → Pot (bounded by the player's budget delegation), credited in the Pot
+ * ledger to the eventual winner. Credits FROM the bank (GO bonus, mortgage, house
+ * sale) are play-money only — the bank has no wallet/delegation. Returns the tx hash
+ * of the real charge, if any.
+ */
+async function settleOnChain(e: MonopolyEngine, g: Game, s: Settlement): Promise<Hex | null> {
+  if (s.from === "bank") return null; // bank → player credit: play-money only
+  if (s.amount <= 0) return null;
+  const fromId = s.from.toLowerCase();
+  const seat = g.delegs[fromId];
+  if (!seat?.signedBudget || !seat.paid) return null; // unfunded/observer — skip real charge
+  const amountUsdc = dollarsToUsdc(s.amount);
+  if (Number(amountUsdc) <= 0) return null;
+  // The real USDC x402 charge: transferFrom(player → Pot), bounded by the budget
+  // delegation's caveats. The accumulated USDC pays the last solvent player on settle.
+  // (Pot-ledger crediting is done once at buy-in so the winner is a recognised
+  // participant; per-charge creditDeposit is unnecessary and is skipped to keep the
+  // on-chain tx count bounded for a full real game.)
+  const res = await withNonceRetry(() =>
+    chargeFromPlayer(e, seat.signedBudget!, fromId as Address, deployment.pot, amountUsdc),
+  );
+  g.lastTx[fromId] = res.txHash;
+  return res.txHash;
 }
 
 async function main() {
-  console.log("[monopoly-server] booting on Base Sepolia…");
+  console.log("[monopoly-server] booting (full rules) on Base Sepolia…");
   const e: MonopolyEngine = await getEngine();
   console.log("[monopoly-server] up. world", deployment.world, "pot", deployment.pot);
 
@@ -175,9 +211,9 @@ async function main() {
 
   app.get("/api/health", (c) => json(c, { ok: true, world: deployment.world, pot: deployment.pot, usdc: deployment.usdc }));
 
-  // Seat a fresh room: human seat 0, then bots. Start turns, open pot.
+  // Seat a fresh room: human seat 0, then bots. Start on-chain turns, open pot.
   app.post("/api/new-game", async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { human?: Address; bots?: Address[]; fee?: string };
+    const body = (await c.req.json().catch(() => ({}))) as { human?: Address; bots?: Address[]; fee?: string; names?: Record<string, string> };
     if (!body.human || !Array.isArray(body.bots)) return json(c, { ok: false, error: "human + bots required" }, 400);
     const fee = body.fee ?? ENTRY_FEE_USDC;
     const order: Address[] = [body.human, ...body.bots];
@@ -188,179 +224,247 @@ async function main() {
         await openPot(e, id);
         return id;
       });
+      const seats = order.map((a, i) => ({ id: a, name: i === 0 ? "You" : `Bot ${i}`, role: (i === 0 ? "human" : "bot") as "human" | "bot" }));
+      const rules = new MonopolyRules(roomId.toString(), seats);
       game = {
         roomId,
         fee,
-        seats: order.map((a, i) => ({ address: a, role: i === 0 ? "human" : "bot", paid: false, position: 0, pending: null })),
-        properties: {},
-        ownedCount: {},
+        rules,
+        delegs: Object.fromEntries(order.map((a) => [a.toLowerCase(), { paid: false } as SeatDelegs])),
+        names: Object.fromEntries(seats.map((s) => [s.id.toLowerCase(), s.name])),
         paymentTx: {},
+        lastTx: {},
+        settled: false,
       };
-      console.log(`[monopoly-server] new game room ${roomId} seats ${order.length} (target ${TARGET_PROPERTIES} props to win)`);
+      console.log(`[monopoly-server] NEW GAME room ${roomId} — ${order.length} players, START_CASH 80, full rules, win = last solvent.`);
       const cur = await getCurrentTurn(e, roomId).catch(() => null);
       return json(c, { ok: true, ...publicGame(game, cur) });
     } catch (err) {
-      return json(c, { ok: false, error: err instanceof Error ? err.message : String(err) }, 500);
+      return failure(c, err);
     }
   });
 
-  // x402 buy-in: redeem the player's budget delegation (transferFrom→Pot) + record
-  // the deposit in the pot ledger so the winner is a recognised participant.
-  app.post("/api/charge", async (c) => {
+  // Join: cache the player's delegations + pay the x402 buy-in (USDC → Pot).
+  app.post("/api/join", async (c) => {
     if (!game) return json(c, { ok: false, error: "no game" }, 400);
-    const body = (await c.req.json().catch(() => ({}))) as { player?: Address; signedBudget?: SignedDelegation };
-    if (!body.player || !body.signedBudget) return json(c, { ok: false, error: "player + signedBudget required" }, 400);
+    const body = (await c.req.json().catch(() => ({}))) as { player?: Address; signedGameplay?: SignedDelegation; signedBudget?: SignedDelegation };
+    if (!body.player || !body.signedGameplay || !body.signedBudget) return json(c, { ok: false, error: "player + signedGameplay + signedBudget required" }, 400);
     const g = game;
-    const seat = seatOf(g, body.player);
+    const id = body.player.toLowerCase();
+    const seat = g.delegs[id];
     if (!seat) return json(c, { ok: false, error: "not a seat" }, 400);
-    if (seat.paid) return json(c, { ok: true, txHash: g.paymentTx[seat.address], alreadyPaid: true });
+    seat.signedGameplay = reviveSigned(body.signedGameplay);
+    seat.signedBudget = reviveSigned(body.signedBudget);
+    if (seat.paid) return json(c, { ok: true, txHash: g.paymentTx[id], alreadyPaid: true, ...publicGame(g, await getCurrentTurn(e, g.roomId).catch(() => null)) });
     try {
-      const signedBudget = reviveSigned(body.signedBudget);
       const res = await serialized(async () => {
-        const charge = await chargeFromPlayer(e, signedBudget, body.player!, deployment.pot, g.fee);
-        await creditDeposit(e, g.roomId, body.player!, g.fee);
+        const charge = await withNonceRetry(() => chargeFromPlayer(e, seat.signedBudget!, body.player!, deployment.pot, g.fee));
+        await withNonceRetry(() => creditDeposit(e, g.roomId, body.player!, g.fee));
         return charge;
       });
       seat.paid = true;
-      g.paymentTx[seat.address] = res.txHash;
-      console.log(`[monopoly-server] ${seat.role} ${seat.address} BUY-IN ${g.fee} USDC tx ${res.txHash}`);
-      return json(c, { ok: true, txHash: res.txHash, blockNumber: res.blockNumber });
+      g.paymentTx[id] = res.txHash;
+      console.log(`[monopoly-server] ${g.names[id]} BUY-IN ${g.fee} USDC tx ${res.txHash}`);
+      const cur = await getCurrentTurn(e, g.roomId).catch(() => null);
+      return json(c, { ok: true, txHash: res.txHash, ...publicGame(g, cur) });
     } catch (err) {
       return failure(c, err);
     }
   });
 
-  // Gasless dice roll: redeem the player's gameplay delegation (turn-bound).
-  app.post("/api/roll", async (c) => {
+  // Run ONE action through the authoritative rules engine + settle it on-chain.
+  app.post("/api/act", async (c) => {
     if (!game) return json(c, { ok: false, error: "no game" }, 400);
-    const body = (await c.req.json().catch(() => ({}))) as { player?: Address; signedGameplay?: SignedDelegation };
-    if (!body.player || !body.signedGameplay) return json(c, { ok: false, error: "player + signedGameplay required" }, 400);
+    const body = (await c.req.json().catch(() => ({}))) as { player?: Address; action?: string; spaceId?: number };
+    if (!body.player || !body.action) return json(c, { ok: false, error: "player + action required" }, 400);
     const g = game;
-    if (g.winner) return json(c, { ok: false, error: "game already won", winner: g.winner }, 409);
-    const seat = seatOf(g, body.player);
+    const id = body.player.toLowerCase();
+    const seat = g.delegs[id];
     if (!seat) return json(c, { ok: false, error: "not a seat" }, 400);
-    if (seat.pending) return json(c, { ok: false, error: `resolve pending ${seat.pending.kind} first` }, 409);
+    if (g.rules.winner) return json(c, { ok: false, error: "game already won", winner: g.rules.winner }, 409);
+
     try {
-      const out = await serialized(async () => {
-        // Strict, fresh turn check INSIDE the serialized block: because all relayer
-        // submissions are serialized, no other roll can advance the turn between this
-        // read and our submit — so a stale-read turn race can't cause a wasted revert.
-        const cur = await getCurrentTurn(e, g.roomId);
-        if (cur.toLowerCase() !== body.player!.toLowerCase()) {
-          throw new Error(`not your turn (current ${cur})`);
-        }
-        return redeemRoll(e, reviveSigned(body.signedGameplay!), g.roomId);
-      });
-      seat.position = out.toPos;
-      seat.pending = resolveLanding(g, seat);
-      const space = BOARD[seat.position % BOARD_SIZE];
-      console.log(`[monopoly-server] ${seat.role} ${seat.address} rolled ${out.die1}+${out.die2} → ${space.name} (${seat.pending?.kind ?? "free"}) tx ${out.txHash}`);
-      return json(c, { ok: true, txHash: out.txHash, die1: out.die1, die2: out.die2, fromPos: out.fromPos, toPos: out.toPos, passedGo: out.passedGo, space: space.name, pending: seat.pending });
+      const result = await serialized(() => runAction(e, g, id as Address, body.action!, body.spaceId));
+      const cur = await getCurrentTurn(e, g.roomId).catch(() => null);
+      return json(c, { ok: true, ...result, ...publicGame(g, cur) });
     } catch (err) {
       return failure(c, err);
     }
   });
 
-  // x402 BUY a property: real USDC transferFrom(player→Pot) + record ownership.
-  app.post("/api/buy", async (c) => {
-    if (!game) return json(c, { ok: false, error: "no game" }, 400);
-    const body = (await c.req.json().catch(() => ({}))) as { player?: Address; signedBudget?: SignedDelegation };
-    if (!body.player || !body.signedBudget) return json(c, { ok: false, error: "player + signedBudget required" }, 400);
-    const g = game;
-    if (g.winner) return json(c, { ok: false, error: "game already won", winner: g.winner }, 409);
-    const seat = seatOf(g, body.player);
-    if (!seat) return json(c, { ok: false, error: "not a seat" }, 400);
-    if (!seat.pending || seat.pending.kind !== "buy") return json(c, { ok: false, error: "no pending buy" }, 409);
-    const spaceId = seat.pending.spaceId;
-    const space = BOARD[spaceId];
-    try {
-      const out = await serialized(async () => {
-        if (g.properties[spaceId]) throw new Error("already owned");
-        const charge = await chargeFromPlayer(e, reviveSigned(body.signedBudget!), body.player!, deployment.pot, BUY_USDC);
-        await creditDeposit(e, g.roomId, body.player!, BUY_USDC);
-        const recordTx = await recordBuy(e, g.roomId, spaceId, body.player!, BigInt(space.price), BigInt(space.rent));
-        return { charge, recordTx };
-      });
-      g.properties[spaceId] = body.player;
-      const key = body.player.toLowerCase();
-      g.ownedCount[key] = (g.ownedCount[key] ?? 0) + 1;
-      seat.pending = null;
-      console.log(`[monopoly-server] ${seat.role} ${seat.address} BOUGHT ${space.name} ${BUY_USDC} USDC tx ${out.charge.txHash} (owns ${g.ownedCount[key]})`);
-
-      // WIN check.
-      let payoutTx: Hex | undefined;
-      if (g.ownedCount[key] >= TARGET_PROPERTIES) {
-        payoutTx = await serialized(() => settlePot(e, g.roomId, body.player!));
-        g.winner = body.player;
-        g.payoutTx = payoutTx;
-        console.log(`[monopoly-server] WINNER ${body.player} owns ${g.ownedCount[key]} props — pot settled tx ${payoutTx}`);
-      }
-      return json(c, { ok: true, txHash: out.charge.txHash, recordTx: out.recordTx, properties: g.ownedCount[key], winner: g.winner ?? null, payoutTx: payoutTx ?? null });
-    } catch (err) {
-      return failure(c, err);
-    }
-  });
-
-  // x402 RENT: real USDC transferFrom(payer→Pot) routed through the Pot (the allowed
-  // recipient); the owner is credited in the pot ledger + the play-cash ledger.
-  app.post("/api/rent", async (c) => {
-    if (!game) return json(c, { ok: false, error: "no game" }, 400);
-    const body = (await c.req.json().catch(() => ({}))) as { player?: Address; signedBudget?: SignedDelegation };
-    if (!body.player || !body.signedBudget) return json(c, { ok: false, error: "player + signedBudget required" }, 400);
-    const g = game;
-    if (g.winner) return json(c, { ok: false, error: "game already won", winner: g.winner }, 409);
-    const seat = seatOf(g, body.player);
-    if (!seat) return json(c, { ok: false, error: "not a seat" }, 400);
-    if (!seat.pending || seat.pending.kind !== "rent") return json(c, { ok: false, error: "no pending rent" }, 409);
-    const spaceId = seat.pending.spaceId;
-    const owner = seat.pending.owner!;
-    const space = BOARD[spaceId];
-    try {
-      const out = await serialized(async () => {
-        const charge = await chargeFromPlayer(e, reviveSigned(body.signedBudget!), body.player!, deployment.pot, RENT_USDC);
-        // Credit the OWNER in the pot ledger (rent flows to the owner economically;
-        // the USDC sits in the Pot and is paid out on settle).
-        await creditDeposit(e, g.roomId, owner, RENT_USDC);
-        const recordTx = await recordRent(e, g.roomId, spaceId, body.player!);
-        return { charge, recordTx };
-      });
-      seat.pending = null;
-      console.log(`[monopoly-server] ${seat.role} ${seat.address} RENT ${RENT_USDC} USDC on ${space.name} → owner ${owner} tx ${out.charge.txHash}`);
-      return json(c, { ok: true, txHash: out.charge.txHash, recordTx: out.recordTx, owner });
-    } catch (err) {
-      return failure(c, err);
-    }
-  });
-
-  // Decline a pending BUY (a player chooses not to buy an unowned property). No
-  // on-chain effect — just clears the pending so the player can roll next turn.
-  app.post("/api/skip", async (c) => {
-    if (!game) return json(c, { ok: false, error: "no game" }, 400);
-    const body = (await c.req.json().catch(() => ({}))) as { player?: Address };
-    if (!body.player) return json(c, { ok: false, error: "player required" }, 400);
-    const seat = seatOf(game, body.player);
-    if (!seat) return json(c, { ok: false, error: "not a seat" }, 400);
-    if (seat.pending?.kind === "buy") seat.pending = null;
-    return json(c, { ok: true });
-  });
-
-  // /api/state ALWAYS returns HTTP 200 with the current state — it must never throw,
-  // since the UI + e2e poll it to observe the winner + payout. `ok:false` (no game
-  // yet) is still a 200 so a transient gap never blanks the page.
   app.get("/api/state", async (c) => {
     if (!game) return json(c, { ok: false, error: "no game" }, 200);
     let cur: Address | null = null;
-    try {
-      cur = await getCurrentTurn(e, game.roomId);
-    } catch {
-      /* transient read-after-write lag — fall back to the last-known turn (null) */
-    }
+    try { cur = await getCurrentTurn(e, game.roomId); } catch { /* lag */ }
     return json(c, { ok: true, ...publicGame(game, cur) });
   });
 
-  serve({ fetch: app.fetch, port: PORT }, (info) => {
-    console.log(`[monopoly-server] listening on http://localhost:${info.port}`);
-  });
+  serve({ fetch: app.fetch, port: PORT }, (info) => console.log(`[monopoly-server] listening on http://localhost:${info.port}`));
+}
+
+/**
+ * Apply one action for `player` and settle every resulting money movement on-chain.
+ * MUST be called inside the serialized() queue.
+ */
+async function runAction(
+  e: MonopolyEngine,
+  g: Game,
+  player: Address,
+  action: string,
+  spaceId?: number,
+): Promise<{ dice?: [number, number]; log: string[]; txHash?: Hex; recordTx?: Hex }> {
+  const rules = g.rules;
+  const seat = g.delegs[player.toLowerCase()];
+  const cur = rules.current();
+  if (cur.id !== player.toLowerCase()) throw new Error(`not your turn (current ${cur.id})`);
+
+  let dice: [number, number] | undefined;
+  let settlements: Settlement[] = [];
+  let log: string[] = [];
+  let recordTx: Hex | undefined;
+  let actionTagStr = action;
+  let actionSpace = spaceId ?? cur.position;
+  let actionAmount = 0n;
+
+  switch (action) {
+    case "roll": {
+      // REAL on-chain dice via the gameplay delegation (turn-bound, gasless).
+      if (!seat?.signedGameplay) throw new Error("no gameplay delegation (join first)");
+      // Strict fresh turn check inside the serialized block.
+      const onchain = await getCurrentTurn(e, g.roomId);
+      if (onchain.toLowerCase() !== player.toLowerCase()) throw new Error(`not your turn (current ${onchain})`);
+      const roll = await redeemRoll(e, seat.signedGameplay, g.roomId);
+      recordTx = roll.txHash;
+      const r = rules.roll(roll.die1, roll.die2);
+      dice = [roll.die1, roll.die2];
+      settlements = r.settlements;
+      log = r.log;
+      console.log(`[monopoly-server] ${g.names[player.toLowerCase()]} ROLLED ${roll.die1}+${roll.die2} tx ${roll.txHash} — ${log.join("; ")}`);
+      break;
+    }
+    case "buy": {
+      actionSpace = cur.position;
+      const r = rules.buy();
+      settlements = r.settlements;
+      log = r.log;
+      actionTagStr = "buy";
+      break;
+    }
+    case "decline": { const r = rules.decline(); log = r.log; break; }
+    case "build": { const r = rules.build(spaceId!); settlements = r.settlements; log = r.log; actionTagStr = "build"; actionSpace = spaceId!; break; }
+    case "mortgage": { const r = rules.mortgage(spaceId!); settlements = r.settlements; log = r.log; actionTagStr = "mortgage"; actionSpace = spaceId!; break; }
+    case "unmortgage": { const r = rules.unmortgage(spaceId!); settlements = r.settlements; log = r.log; actionTagStr = "unmortgage"; actionSpace = spaceId!; break; }
+    case "payJail": { const r = rules.payJail(); settlements = r.settlements; log = r.log; actionTagStr = "jail"; break; }
+    case "end": {
+      // The rules engine decides whether the turn actually advances (doubles → the
+      // same player rolls again → the on-chain turn must NOT advance).
+      const adv = rules.endTurn();
+      log = [`${g.names[player.toLowerCase()]} ended their turn`];
+      await afterStateChange(e, g, new Set([player.toLowerCase()]));
+      if (rules.winner) {
+        await maybeSettleWinner(e, g);
+        return { log, recordTx };
+      }
+      console.log(`[monopoly-server] END ${g.names[player.toLowerCase()]} sameTurn=${adv.sameTurn} next=${adv.nextPlayer ? g.names[adv.nextPlayer] : "none"}`);
+      if (!adv.sameTurn) {
+        // turn-bound, gasless player-signed on-chain turn advance (one seat)
+        const onchain = await getCurrentTurn(e, g.roomId).catch(() => null);
+        if (onchain && onchain.toLowerCase() === player.toLowerCase() && seat?.signedGameplay) {
+          await withNonceRetry(() => redeemEndTurn(e, seat.signedGameplay!, g.roomId)).then((r) => (recordTx = r.txHash)).catch((err) => {
+            console.warn(`[monopoly-server] endTurn redeem failed: ${err instanceof Error ? err.message : err}`);
+          });
+        }
+        // Sync the strictly-rotating on-chain turn to the rules-engine current player
+        // (the rules engine SKIPS bankrupt players; the on-chain TurnManager doesn't).
+        await syncOnChainTurn(e, g, adv.nextPlayer);
+        const after = await getCurrentTurn(e, g.roomId).catch(() => null);
+        console.log(`[monopoly-server] END advanced on-chain → ${after}`);
+      }
+      return { log, recordTx };
+    }
+    default:
+      throw new Error(`unknown action: ${action}`);
+  }
+
+  // Settle every money movement on-chain (real USDC charges for player debits).
+  const touched = new Set<string>([player.toLowerCase()]);
+  let chargeTx: Hex | undefined;
+  for (const s of settlements) {
+    if (s.from !== "bank") touched.add(s.from.toLowerCase());
+    if (s.to !== "bank") touched.add(s.to.toLowerCase());
+    const tx = await settleOnChain(e, g, s).catch((err) => {
+      console.warn(`[monopoly-server] settle skipped (${s.reason}): ${err instanceof Error ? err.message : err}`);
+      return null;
+    });
+    if (tx && !chargeTx) chargeTx = tx;
+  }
+
+  // Record the action on-chain via the player's gameplay delegation (turn-bound,
+  // gasless) — skip for "roll" (rollAndMove already recorded it).
+  if (action !== "roll" && seat?.signedGameplay) {
+    actionAmount = BigInt(settlements.find((s) => s.from === player.toLowerCase())?.amount ?? 0) * 1_000_000n;
+    await recordPlayerAction(e, g, player, actionTagStr, actionSpace, actionAmount).then((t) => (recordTx = recordTx ?? t)).catch(() => {});
+  }
+
+  await afterStateChange(e, g, touched);
+  if (rules.winner) await maybeSettleWinner(e, g);
+
+  return { dice, log, txHash: chargeTx, recordTx };
+}
+
+/** Advance the on-chain TurnManager (relayer, authorized) until its current player
+ *  matches the rules-engine's next player — skipping bankrupt seats the on-chain
+ *  strict rotation would otherwise land on. */
+async function syncOnChainTurn(e: MonopolyEngine, g: Game, target: string | null): Promise<void> {
+  if (!target) return;
+  for (let i = 0; i < g.rules.order.length + 1; i++) {
+    const cur = await getCurrentTurn(e, g.roomId).catch(() => null);
+    if (!cur) return;
+    if (cur.toLowerCase() === target.toLowerCase()) return;
+    await withNonceRetry(() => advanceTurnAdmin(e, g.roomId)).catch(() => {});
+  }
+}
+
+/** Redeem the player's gameplay delegation to record a non-roll action on-chain. */
+async function recordPlayerAction(e: MonopolyEngine, g: Game, player: Address, tag: string, spaceId: number, amount: bigint): Promise<Hex | undefined> {
+  const seat = g.delegs[player.toLowerCase()];
+  if (!seat?.signedGameplay) return undefined;
+  const onchain = await getCurrentTurn(e, g.roomId).catch(() => null);
+  if (!onchain || onchain.toLowerCase() !== player.toLowerCase()) return undefined; // turn already advanced
+  const res = await withNonceRetry(() => redeemAction(e, seat.signedGameplay!, g.roomId, tag, spaceId, amount)).catch(() => null);
+  return res?.txHash;
+}
+
+/** Emit a bankruptcy event on-chain the first time each player is eliminated. (Cash /
+ *  position mirroring into the World tables is intentionally OMITTED — the
+ *  authoritative state lives in the server and the UI reads it from /api/state — so a
+ *  full real game stays within a bounded on-chain tx budget.) */
+async function afterStateChange(e: MonopolyEngine, g: Game, _touched: Set<string>): Promise<void> {
+  const snap = g.rules.snapshot();
+  for (const p of snap.players) {
+    if (!p.bankrupt) continue;
+    if (g.lastTx[`bankrupt:${p.id}`]) continue;
+    g.lastTx[`bankrupt:${p.id}`] = "0x" as Hex; // mark handled
+    await withNonceRetry(() => recordBankrupt(e, g.roomId, p.id as Address)).catch(() => {});
+    console.log(`[monopoly-server] BANKRUPT ${g.names[p.id]} (round ${snap.round})`);
+  }
+}
+
+/** Settle the pot to the last solvent player (real on-chain USDC payout). */
+async function maybeSettleWinner(e: MonopolyEngine, g: Game): Promise<void> {
+  if (g.settled || !g.rules.winner) return;
+  g.settled = true;
+  const winner = g.rules.winner as Address;
+  const eliminated = g.rules.players.filter((p) => p.bankrupt).map((p) => g.names[p.id]);
+  try {
+    const tx = await withNonceRetry(() => settlePot(e, g.roomId, winner));
+    g.payoutTx = tx;
+    console.log(`[monopoly-server] ===== WINNER ${g.names[winner.toLowerCase()]} (${winner}) — eliminated: ${eliminated.join(", ") || "none (round cap)"} — POT PAID OUT tx ${tx} =====`);
+  } catch (err) {
+    g.settled = false;
+    console.error(`[monopoly-server] settle failed:`, err instanceof Error ? err.message : err);
+    throw err;
+  }
 }
 
 main().catch((err) => {

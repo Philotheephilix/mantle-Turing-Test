@@ -37,6 +37,24 @@ interface PlayerKey {
   address: `0x${string}`;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Retry a relayer send on a transient nonce collision (the relayer key is shared
+ *  with the UNO example, which may be running concurrently). */
+async function nonceRetry<T>(fn: () => Promise<T>, tries = 8): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      last = e;
+      const m = (e instanceof Error ? e.message : String(e)).toLowerCase();
+      if (!/nonce|replacement|underpriced|already known|mempool/.test(m) || i >= tries - 1) throw e;
+      await sleep(1500 * (i + 1));
+    }
+  }
+  throw last instanceof Error ? last : new Error(String(last));
+}
+
 async function main() {
   const relayer = privateKeyToAccount(RELAYER_PRIVATE_KEY);
   const publicClient = createPublicClient({ chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
@@ -64,26 +82,34 @@ async function main() {
 
     // 1) ETH top-up.
     if ((await publicClient.getBalance({ address: p.address })) < parseEther(ETH_EACH)) {
-      const ethHash = await relayerWallet.sendTransaction({ account: relayer, chain: baseSepolia, to: p.address, value: parseEther(ETH_EACH) });
+      const ethHash = await nonceRetry(() => relayerWallet.sendTransaction({ account: relayer, chain: baseSepolia, to: p.address, value: parseEther(ETH_EACH) }));
       await publicClient.waitForTransactionReceipt({ hash: ethHash });
       console.log(`  ETH +${ETH_EACH} tx ${ethHash}`);
     } else {
       console.log("  ETH ok");
     }
 
-    // 2) USDC top-up.
+    // 2) USDC top-up — only when BELOW a playable minimum. Monopoly debits micro-USDC
+    //    ($1 = 0.0001 USDC), so a small balance covers many buys/rents. If the relayer
+    //    is out of USDC but the player already holds the minimum, warn and CONTINUE
+    //    (don't fail the run) — the player can still play with what it has.
+    const MIN_PLAYABLE = usdcToWei(process.env.USDC_MIN ?? "0.3");
     const haveUsdc = (await publicClient.readContract({ address: deployment.usdc, abi: USDC_ABI, functionName: "balanceOf", args: [p.address] })) as bigint;
-    if (haveUsdc < usdcToWei(USDC_EACH)) {
-      const usdcHash = await relayerWallet.writeContract({
-        address: deployment.usdc,
-        abi: [{ type: "function", name: "transfer", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ name: "", type: "bool" }], stateMutability: "nonpayable" }],
-        functionName: "transfer",
-        args: [p.address, usdcToWei(USDC_EACH) - haveUsdc],
-        account: relayer,
-        chain: baseSepolia,
-      });
-      await publicClient.waitForTransactionReceipt({ hash: usdcHash });
-      console.log(`  USDC topped to ${USDC_EACH} tx ${usdcHash}`);
+    if (haveUsdc < MIN_PLAYABLE) {
+      try {
+        const usdcHash = await nonceRetry(() => relayerWallet.writeContract({
+          address: deployment.usdc,
+          abi: [{ type: "function", name: "transfer", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ name: "", type: "bool" }], stateMutability: "nonpayable" }],
+          functionName: "transfer",
+          args: [p.address, usdcToWei(USDC_EACH) - haveUsdc],
+          account: relayer,
+          chain: baseSepolia,
+        }));
+        await publicClient.waitForTransactionReceipt({ hash: usdcHash });
+        console.log(`  USDC topped to ${USDC_EACH} tx ${usdcHash}`);
+      } catch (e) {
+        console.log(`  ⚠ USDC top-up skipped (relayer low on USDC): player holds ${Number(haveUsdc) / 1e6} — ${String((e as Error).message ?? e).slice(0, 70)}`);
+      }
     } else {
       console.log(`  USDC ok (${Number(haveUsdc) / 1e6})`);
     }

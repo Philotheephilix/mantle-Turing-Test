@@ -27,10 +27,10 @@ export default function Page() {
   const [lastTx, setLastTx] = useState<{ text: string; tx: string } | null>(null);
   const [die, setDie] = useState<{ d1: number; d2: number }>({ d1: 0, d2: 0 });
   const [log, setLog] = useState<string[]>([]);
-  const paidRef = useRef(false);
+  const joinedRef = useRef(false);
 
   const addLog = useCallback((m: string) => {
-    setLog((l) => [`${new Date().toLocaleTimeString()}  ${m}`, ...l].slice(0, 40));
+    setLog((l) => [`${new Date().toLocaleTimeString()}  ${m}`, ...l].slice(0, 50));
   }, []);
 
   const client = useMemo(() => (account ? new MonopolyClient(BACKEND_URL, account) : null), [account]);
@@ -44,15 +44,14 @@ export default function Page() {
     if (typeof window !== "undefined") (window as unknown as Record<string, unknown>).__MONOPOLY_ADDR__ = a.address;
   }, [addLog]);
 
-  const mySeat = useMemo(() => {
+  const me = useMemo(() => {
     if (!account || !view) return null;
-    return view.seats.find((s) => s.address.toLowerCase() === account.address.toLowerCase()) ?? null;
+    return view.players.find((p) => p.address.toLowerCase() === account.address.toLowerCase()) ?? null;
   }, [account, view]);
 
   const myTurn = Boolean(account && view?.currentTurn && view.currentTurn.toLowerCase() === account.address.toLowerCase());
-  const pending = mySeat?.pending ?? null;
+  const pending = view?.pending ?? null;
 
-  // Poll game state.
   useEffect(() => {
     if (!client || phase === "connect") return;
     let alive = true;
@@ -61,7 +60,7 @@ export default function Page() {
         const st = await client.state();
         if (!alive || !st.ok) return;
         setView(st);
-        const seat = account && st.seats.find((s) => s.address.toLowerCase() === account.address.toLowerCase());
+        const seat = account && st.players.find((p) => p.address.toLowerCase() === account.address.toLowerCase());
         setPhase((p) => {
           if (st.winner) return "done";
           if (!seat) return p === "waiting" ? "waiting" : p;
@@ -75,90 +74,78 @@ export default function Page() {
     };
     void tick();
     const id = setInterval(tick, 2000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
+    return () => { alive = false; clearInterval(id); };
   }, [client, phase, account]);
 
-  const pay = useCallback(async () => {
-    if (!client || !view || paidRef.current) return;
-    paidRef.current = true;
+  const join = useCallback(async () => {
+    if (!client || !view || joinedRef.current) return;
+    joinedRef.current = true;
     setBusy(true);
     setErr(null);
     try {
-      addLog(`signing budget delegation + paying ${view.fee} USDC buy-in (x402)…`);
-      const res = await client.payBuyIn(view.pot);
+      addLog(`signing gameplay + budget delegation, paying ${view.fee} USDC buy-in (x402)…`);
+      const res = await client.join(view.roomId, view.pot);
       if (!res.ok || !res.txHash) throw new Error(res.error ?? "buy-in failed");
       setPaymentTx(res.txHash);
       setLastTx({ text: `Buy-in ${view.fee} USDC settled`, tx: res.txHash });
-      addLog(`PAID buy-in — tx ${res.txHash}`);
+      addLog(`JOINED — buy-in tx ${res.txHash}`);
       setPhase("playing");
     } catch (e) {
-      paidRef.current = false;
+      joinedRef.current = false;
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
   }, [client, view, addLog]);
 
-  const roll = useCallback(async () => {
-    if (!client || !view) return;
-    setBusy(true);
-    setRolling(true);
-    setErr(null);
-    try {
-      addLog("rolling onchain dice (gasless)…");
-      const res = await client.roll(view.roomId);
-      if (!res.ok || !res.txHash) throw new Error(res.error ?? "roll rejected");
-      if (res.die1 != null && res.die2 != null) setDie({ d1: res.die1, d2: res.die2 });
-      setLastTx({ text: `Rolled ${res.die1}+${res.die2} → ${res.space}`, tx: res.txHash });
-      addLog(`rolled ${res.die1}+${res.die2} → ${res.space} (${res.pending?.kind ?? "free"}) — tx ${res.txHash}`);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-      setTimeout(() => setRolling(false), 500);
-    }
-  }, [client, view, addLog]);
+  const act = useCallback(
+    async (action: string, spaceId?: number) => {
+      if (!client || !view) return;
+      setBusy(true);
+      setErr(null);
+      if (action === "roll") setRolling(true);
+      try {
+        const res = await client.act(action, spaceId);
+        if (!res.ok) throw new Error(res.error ?? `${action} rejected`);
+        if (res.dice) {
+          setDie({ d1: res.dice[0], d2: res.dice[1] });
+          setLastTx({ text: `Rolled ${res.dice[0]}+${res.dice[1]}`, tx: res.recordTx ?? res.txHash ?? "" });
+        } else if (res.txHash) {
+          setLastTx({ text: `${action} · settled on-chain`, tx: res.txHash });
+        }
+        for (const l of res.log ?? []) addLog(l);
+        setView(res);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        setBusy(false);
+        setTimeout(() => setRolling(false), 500);
+      }
+    },
+    [client, view, addLog],
+  );
 
-  const buy = useCallback(async () => {
-    if (!client || !view) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      addLog(`buying property (real ${view.charges.buy} USDC x402)…`);
-      const res = await client.buy(view.pot);
-      if (!res.ok || !res.txHash) throw new Error(res.error ?? "buy rejected");
-      setLastTx({ text: `Bought property · ${view.charges.buy} USDC`, tx: res.txHash });
-      addLog(`BOUGHT — tx ${res.txHash} (owns ${res.properties})`);
-      if (res.winner) addLog(`WINNER ${short(res.winner)} — payout tx ${res.payoutTx}`);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
+  // Buildable properties (own a full group, can add a house evenly, affordable).
+  const buildable = useMemo(() => {
+    if (!view || !me) return [] as number[];
+    const out: number[] = [];
+    for (const sp of BOARD) {
+      if (sp.kind !== "property" || !sp.group) continue;
+      const pr = view.properties[sp.id];
+      if (!pr || pr.owner?.toLowerCase() !== me.address.toLowerCase() || pr.mortgaged) continue;
+      const members = BOARD.filter((s) => s.group === sp.group).map((s) => s.id);
+      if (!members.every((m) => view.properties[m]?.owner?.toLowerCase() === me.address.toLowerCase())) continue;
+      if (pr.houses >= 5) continue;
+      const minH = Math.min(...members.map((m) => view.properties[m].houses));
+      if (pr.houses > minH) continue;
+      if (members.some((m) => view.properties[m].mortgaged)) continue;
+      if ((sp.houseCost ?? 0) > me.cash) continue;
+      out.push(sp.id);
     }
-  }, [client, view, addLog]);
+    return out;
+  }, [view, me]);
 
-  const rent = useCallback(async () => {
-    if (!client || !view) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      addLog(`paying rent (real ${view.charges.rent} USDC x402)…`);
-      const res = await client.rent(view.pot);
-      if (!res.ok || !res.txHash) throw new Error(res.error ?? "rent rejected");
-      setLastTx({ text: `Paid rent · ${view.charges.rent} USDC`, tx: res.txHash });
-      addLog(`PAID RENT — tx ${res.txHash}`);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }, [client, view, addLog]);
-
-  const position = mySeat?.position ?? 0;
-  const space = BOARD[position % BOARD.length];
+  const space = me ? BOARD[me.position % BOARD.length] : BOARD[0];
 
   // ── connect ──
   if (phase === "connect") {
@@ -168,17 +155,15 @@ export default function Page() {
           <div className="gold-text text-5xl font-bold tracking-tight">NEXUS</div>
           <div className="text-emerald-200/80 tracking-[0.3em] text-sm mt-2">ONCHAIN MONOPOLY</div>
           <p className="text-emerald-100/70 mt-6 text-sm leading-relaxed">
-            Gasless dice via an onchain randomness coordinator. Buy-in, property buys and rent settle
-            as <span className="gold-text">real per-player USDC payments</span> on Base Sepolia — each
-            from <b>your own</b> wallet, bounded by a single Nexus delegation you sign. First to own{" "}
-            <b>{view?.targetProperties ?? 2}</b> properties wins the pot.
+            The <b>full</b> Monopoly ruleset on Base Sepolia. Gasless dice via an onchain randomness
+            coordinator; every move is signed by <b>your own</b> wallet via a single Nexus delegation.
+            Buy-in, rent, tax and builds settle as <span className="gold-text">real USDC payments</span>{" "}
+            from your wallet, bounded on-chain. <b>Win = be the last player not bankrupt.</b>
           </p>
           <button data-testid="login-btn" onClick={connect} className="btn btn-primary w-full mt-8 py-3 text-base">
             {PRIVY_ENABLED ? "Log in with Privy" : "Play as Guest"}
           </button>
-          <div className="text-emerald-300/50 text-[11px] mt-4">
-            Guest wallet (generated locally · no account needed)
-          </div>
+          <div className="text-emerald-300/50 text-[11px] mt-4">Guest wallet (generated locally · no account needed)</div>
         </div>
       </main>
     );
@@ -186,11 +171,11 @@ export default function Page() {
 
   return (
     <main className="min-h-screen p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <header className="flex items-center justify-between mb-5">
           <div>
             <span className="gold-text text-2xl font-bold tracking-tight">NEXUS</span>
-            <span className="text-emerald-200/70 text-sm ml-2 tracking-[0.25em]">MONOPOLY</span>
+            <span className="text-emerald-200/70 text-sm ml-2 tracking-[0.25em]">MONOPOLY · FULL RULES</span>
           </div>
           <div className="panel rounded-xl px-3 py-1.5 text-right">
             <div className="text-[10px] text-emerald-300/60 uppercase tracking-wider">guest wallet</div>
@@ -200,9 +185,9 @@ export default function Page() {
           </div>
         </header>
 
-        <div className="grid lg:grid-cols-[1fr_340px] gap-6">
+        <div className="grid lg:grid-cols-[1fr_360px] gap-6">
           <div>
-            <Board board={BOARD} position={position} properties={(view?.properties as Record<number, string>) ?? {}} playerAddress={account?.address ?? null} />
+            <Board players={view?.players ?? []} properties={view?.properties ?? {}} meAddress={account?.address ?? null} />
           </div>
 
           <aside className="space-y-4">
@@ -216,32 +201,44 @@ export default function Page() {
             {phase === "lobby" && (
               <div className="panel rounded-2xl p-5 text-center">
                 <div className="text-sm text-emerald-100/80 mb-3">
-                  Buy in to the pot — <b>{view?.fee} USDC</b>, paid as a real x402 charge from <b>your</b>{" "}
-                  wallet to the Pot {short(view?.pot)}, bounded on-chain by your budget delegation.
+                  Buy in to the pot — <b>{view?.fee} USDC</b>, a real x402 charge from <b>your</b> wallet to the
+                  Pot {short(view?.pot)}, bounded on-chain by your budget delegation.
                 </div>
-                <button data-testid="join-btn" onClick={pay} disabled={busy} className="btn btn-gold w-full py-3">
+                <button data-testid="join-btn" onClick={join} disabled={busy} className="btn btn-gold w-full py-3">
                   {busy ? "Paying buy-in…" : `Join · pay ${view?.fee} USDC`}
                 </button>
               </div>
             )}
 
-            {(phase === "playing" || phase === "done") && (
+            {(phase === "playing" || phase === "done") && view && (
               <>
+                {/* players */}
                 <div className="panel rounded-2xl p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[11px] text-emerald-300/60 uppercase tracking-wider">On</div>
-                    <div className="text-emerald-100 font-semibold">{space.name}</div>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-emerald-200/60">
-                    <span>pos <span data-testid="position" className="mono">{position}</span></span>
-                    <span>properties <span data-testid="my-properties" className="mono gold-text">{mySeat?.properties ?? 0}</span> / {view?.targetProperties ?? 2}</span>
-                  </div>
+                  <div className="text-[11px] text-emerald-300/60 uppercase tracking-wider mb-2">Players · round {view.round}/{view.roundCap}</div>
+                  <ul className="space-y-1.5" data-testid="players">
+                    {view.players.map((p) => {
+                      const isCur = view.currentTurn?.toLowerCase() === p.address.toLowerCase();
+                      return (
+                        <li key={p.address} className={`flex items-center justify-between text-xs rounded-lg px-2 py-1.5 ${p.bankrupt ? "opacity-40 line-through" : ""} ${isCur ? "bg-emerald-500/15 ring-1 ring-emerald-400/40" : "bg-black/20"}`}>
+                          <span className="flex items-center gap-2">
+                            <span className="font-semibold">{p.name}</span>
+                            {p.inJail && <span className="text-[9px] text-rose-300">JAIL</span>}
+                          </span>
+                          <span className="flex items-center gap-3">
+                            <span className="mono text-emerald-200">${p.cash}</span>
+                            <span className="text-emerald-300/50 text-[10px]">{p.properties.length}🏠</span>
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
 
+                {/* dice + actions */}
                 <div className="panel rounded-2xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-[11px] text-emerald-300/60 uppercase tracking-wider">Onchain dice</div>
-                    <div className="text-[10px] text-emerald-300/40">RandomnessCoordinator</div>
+                    <div className="text-[10px] text-emerald-300/40">on {space.name}</div>
                   </div>
                   <div className="flex items-center justify-center py-2">
                     <Dice die1={die.d1} die2={die.d2} rolling={rolling} />
@@ -255,18 +252,45 @@ export default function Page() {
 
                   {phase === "done" ? (
                     <div className="text-center text-emerald-300/70 text-sm py-2">Game over.</div>
+                  ) : !myTurn ? (
+                    <button disabled className="btn btn-primary w-full py-3 opacity-50">Wait for your turn</button>
+                  ) : me?.inJail && !view.rolledThisTurn ? (
+                    <div className="space-y-2">
+                      <button data-testid="payjail-btn" onClick={() => act("payJail")} disabled={busy} className="btn btn-gold w-full py-2.5">
+                        {me.getOutCards > 0 ? "Use Get-Out-of-Jail card" : "Pay $50 to leave jail"}
+                      </button>
+                      <button data-testid="roll-btn" onClick={() => act("roll")} disabled={busy} className="btn btn-primary w-full py-2.5">
+                        {busy ? "Rolling…" : "Roll for doubles"}
+                      </button>
+                    </div>
                   ) : pending?.kind === "buy" ? (
-                    <button data-testid="buy-btn" onClick={buy} disabled={busy} className="btn btn-primary w-full py-3">
-                      {busy ? "Buying…" : `Buy ${BOARD[pending.spaceId].name} · ${view?.charges.buy} USDC`}
-                    </button>
-                  ) : pending?.kind === "rent" ? (
-                    <button data-testid="rent-btn" onClick={rent} disabled={busy} className="btn btn-danger w-full py-3">
-                      {busy ? "Paying rent…" : `Pay rent · ${view?.charges.rent} USDC`}
+                    <div className="space-y-2">
+                      <button data-testid="buy-btn" onClick={() => act("buy")} disabled={busy || (me?.cash ?? 0) < pending.price} className="btn btn-primary w-full py-2.5">
+                        {busy ? "Buying…" : `Buy ${BOARD[pending.spaceId].name} · $${pending.price}`}
+                      </button>
+                      <button data-testid="decline-btn" onClick={() => act("decline")} disabled={busy} className="btn btn-ghost w-full py-2">
+                        Decline
+                      </button>
+                    </div>
+                  ) : !view.rolledThisTurn ? (
+                    <button data-testid="roll-btn" onClick={() => act("roll")} disabled={busy} className="btn btn-primary w-full py-3">
+                      {busy ? "Rolling onchain…" : "Roll dice"}
                     </button>
                   ) : (
-                    <button data-testid="roll-btn" onClick={roll} disabled={busy || !myTurn} className="btn btn-primary w-full py-3">
-                      {busy ? "Rolling onchain…" : myTurn ? "Roll dice" : "Wait for your turn"}
-                    </button>
+                    <div className="space-y-2">
+                      {buildable.length > 0 && (
+                        <div className="grid grid-cols-1 gap-1">
+                          {buildable.map((sid) => (
+                            <button key={sid} data-testid={`build-${sid}`} onClick={() => act("build", sid)} disabled={busy} className="btn btn-gold w-full py-2 text-xs">
+                              Build on {BOARD[sid].name} · ${BOARD[sid].houseCost}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <button data-testid="end-btn" onClick={() => act("end")} disabled={busy} className="btn btn-primary w-full py-2.5">
+                        {busy ? "…" : "End turn"}
+                      </button>
+                    </div>
                   )}
                 </div>
               </>
@@ -280,7 +304,7 @@ export default function Page() {
               </div>
             )}
 
-            {lastTx && (
+            {lastTx?.tx && (
               <div className="panel rounded-2xl p-4" data-testid="last-tx">
                 <div className="text-[11px] text-emerald-300/60 uppercase tracking-wider mb-1">Settled onchain</div>
                 <div className="text-sm text-emerald-100">{lastTx.text}</div>
@@ -290,7 +314,7 @@ export default function Page() {
 
             {view?.winner && (
               <div data-testid="winner-banner" className="panel rounded-2xl p-4 text-center text-sm font-bold text-emerald-300">
-                WINNER {short(view.winner)}
+                WINNER {short(view.winner)} (last solvent)
                 {view.payoutTx && (
                   <a data-testid="payout-tx" className="tx-link block mono text-[10px] font-normal break-all mt-1" href={`https://sepolia.basescan.org/tx/${view.payoutTx}`} target="_blank" rel="noreferrer">
                     {view.payoutTx}

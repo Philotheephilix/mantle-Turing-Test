@@ -8,6 +8,7 @@
     "fund-players": "tsx scripts/fund-players.ts",
     "server": "tsx scripts/server.ts",
     "bots": "tsx scripts/bots.ts",
+    "play": "tsx scripts/play-headless.ts",
     "dev": "next dev -p 3030",
     "build": "next build",
     "start": "next start -p 3030",

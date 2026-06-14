@@ -1,37 +1,70 @@
 /**
- * Browser-side Monopoly client for the game server (/api/*). The human signs its
- * OWN delegations with the guest wallet (a viem LocalAccount); the server redeems
- * them via the relayer. The human pays zero gas; the buy-in / property buy / rent
- * are real USDC charges from the human's own wallet, bounded by the budget delegation.
+ * Browser-side Monopoly client for the full-rules game server (/api/*). The human
+ * signs its OWN gameplay + budget delegation with the guest wallet (a viem
+ * LocalAccount); the server caches them and redeems them via the relayer. The human
+ * pays zero gas; every money debit (buy-in / buy / rent / tax / build / fine) is a
+ * real USDC charge from the human's own wallet → Pot, bounded by the budget delegation.
  */
 import type { Address, Hex } from "@nexus/types";
 import type { LocalAccount } from "viem/accounts";
 import { signBudgetDelegation, signGameplayDelegation } from "./delegations";
 
-export interface SeatView {
-  address: Address;
-  role: "human" | "bot";
-  paid: boolean;
-  position: number;
-  pending: { kind: "buy" | "rent"; spaceId: number; owner?: Address } | null;
-  properties: number;
+export interface PropertyView {
+  spaceId: number;
+  owner: string | null;
+  houses: number;
+  mortgaged: boolean;
 }
+export interface PlayerView {
+  address: Address;
+  name: string;
+  role: "human" | "bot";
+  cash: number;
+  position: number;
+  inJail: boolean;
+  getOutCards: number;
+  bankrupt: boolean;
+  netWorth: number;
+  properties: number[];
+  paid: boolean;
+  lastTx: Hex | null;
+}
+export type Pending =
+  | { kind: "buy"; spaceId: number; price: number }
+  | { kind: "pay"; to: string; amount: number; reason: string }
+  | { kind: "end" }
+  | null;
 export interface GameView {
+  ok: boolean;
   roomId: string;
   fee: string;
-  charges: { buyIn: string; buy: string; rent: string };
-  targetProperties: number;
-  seats: SeatView[];
-  properties: Record<number, Address>;
-  winner: Address | null;
-  payoutTx: Hex | null;
   pot: Address;
   currentTurn?: Address | null;
+  winner: string | null;
+  payoutTx: Hex | null;
+  round: number;
+  roundCap: number;
+  dollarToUsdc: number;
+  pending: Pending;
+  rolledThisTurn: boolean;
+  players: PlayerView[];
+  properties: Record<number, PropertyView>;
+  cardLog: string[];
 }
 
-// Caps that comfortably cover the human's buy-in + several property buys.
-const PER_ACTION_CAP = "0.5";
+// Caps that comfortably cover the human's buy-in + buys/rents/builds at the $1 =
+// 0.0001 USDC scale (a $2000 hotel = 0.2 USDC).
+const PER_ACTION_CAP = "0.3";
 const TOTAL_CAP = "5";
+
+export interface ActResult {
+  ok: boolean;
+  dice?: [number, number];
+  log?: string[];
+  txHash?: Hex;
+  recordTx?: Hex;
+  error?: string;
+}
 
 export class MonopolyClient {
   constructor(
@@ -53,11 +86,10 @@ export class MonopolyClient {
     return res.json() as Promise<T>;
   }
 
-  state(): Promise<GameView & { ok: boolean }> {
+  state(): Promise<GameView> {
     return this.get("/api/state");
   }
 
-  // Cache the signed budget delegation (covers buy-in + buys + rents) for the game.
   private budgetByPot = new Map<string, Awaited<ReturnType<typeof signBudgetDelegation>>>();
   private async budget(pot: Address) {
     let s = this.budgetByPot.get(pot.toLowerCase());
@@ -67,8 +99,6 @@ export class MonopolyClient {
     }
     return s;
   }
-
-  // Cache the signed gameplay delegation (covers all rolls) for the room.
   private gameplayByRoom = new Map<string, Awaited<ReturnType<typeof signGameplayDelegation>>>();
   private async gameplay(roomId: string) {
     let s = this.gameplayByRoom.get(roomId);
@@ -79,27 +109,15 @@ export class MonopolyClient {
     return s;
   }
 
-  /** Pay the buy-in (real USDC → Pot). */
-  async payBuyIn(pot: Address): Promise<{ ok: boolean; txHash?: Hex; error?: string }> {
-    const signedBudget = await this.budget(pot);
-    return this.post("/api/charge", { player: this.address, signedBudget });
+  /** Join: sign + submit both delegations and pay the x402 buy-in (real USDC → Pot). */
+  async join(roomId: string, pot: Address): Promise<{ ok: boolean; txHash?: Hex; error?: string }> {
+    const [signedGameplay, signedBudget] = await Promise.all([this.gameplay(roomId), this.budget(pot)]);
+    return this.post("/api/join", { player: this.address, signedGameplay, signedBudget });
   }
 
-  /** Gasless dice roll. */
-  async roll(roomId: string): Promise<{ ok: boolean; txHash?: Hex; die1?: number; die2?: number; toPos?: number; space?: string; pending?: SeatView["pending"]; error?: string }> {
-    const signedGameplay = await this.gameplay(roomId);
-    return this.post("/api/roll", { player: this.address, signedGameplay });
-  }
-
-  /** Buy the pending property (real USDC → Pot). */
-  async buy(pot: Address): Promise<{ ok: boolean; txHash?: Hex; properties?: number; winner?: Address | null; payoutTx?: Hex | null; error?: string }> {
-    const signedBudget = await this.budget(pot);
-    return this.post("/api/buy", { player: this.address, signedBudget });
-  }
-
-  /** Pay the pending rent (real USDC → Pot). */
-  async rent(pot: Address): Promise<{ ok: boolean; txHash?: Hex; error?: string }> {
-    const signedBudget = await this.budget(pot);
-    return this.post("/api/rent", { player: this.address, signedBudget });
+  /** Run one action through the rules engine (roll / buy / decline / build / mortgage /
+   *  unmortgage / payJail / end). The server redeems the cached delegations on-chain. */
+  act(action: string, spaceId?: number): Promise<ActResult & GameView> {
+    return this.post("/api/act", { player: this.address, action, spaceId });
   }
 }
