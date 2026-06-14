@@ -1,25 +1,37 @@
 /**
- * The Nexus UNO game server (Base Sepolia).
+ * The Nexus UNO game server (Base Sepolia) — the AUTHORITATIVE full-rules engine.
  *
  *   pnpm --filter @nexus/example-uno server     # → http://localhost:8790
  *
- * Holds the relayer wallet (server-only) and a single live game's in-memory board.
- * Players (the human in the browser + the bots in scripts/bots.ts) sign their OWN
- * delegations with their OWN keys and POST the SignedDelegation here; this server
- * redeems them via the relayer (gasless for players). Every redemption is real
- * on-chain. All relayer submissions are serialized through a queue so the single
- * relayer key never collides its nonces.
+ * This server runs a REAL, complete game of UNO (official 108-card deck, all the
+ * action cards, reshuffles, real win). It holds:
+ *   - the deck + every player's PRIVATE hand (sealed with @nexus/secrets /
+ *     LocalSecrets — real AES-256-GCM; revealed only to the owning player);
+ *   - the discard pile, direction, active color, and the turn cursor.
+ * The deck order is seeded by an ON-CHAIN random word (RandomnessCoordinator's
+ * fast tier) so no one can peek the deal order before it mines.
  *
- * API (JSON, CORS-open for the Next dev origin):
- *   POST /api/new-game   { human, botCount, fee? }        → seat room, deal, open pot
- *   POST /api/charge     { player, signedBudget }         → x402 entry fee (USDC→Pot)
- *   POST /api/move       { player, signedGameplay, kind, card } → gasless play/draw
- *   GET  /api/state                                       → board, turn, winner, payout
+ * It validates EVERY play against the full rules and rejects illegal plays. Each
+ * legal play/draw is ALSO recorded on-chain (gasless) by redeeming the player's
+ * OWN gameplay delegation through the UnoGameSystem — the on-chain record carries
+ * the real card (color, value) and enforces turn order; the win settles the pot.
+ *
+ * The proven SDK rails are unchanged: per-player ERC-7710 delegations (each
+ * player signs with its own key), the x402 USDC entry fee, and the on-chain pot
+ * payout to the winner. All relayer submissions are serialized.
+ *
+ * API (JSON, CORS-open):
+ *   POST /api/new-game  { human, bots, fee? }              → seat, on-chain shuffle, deal, open pot
+ *   POST /api/charge    { player, signedBudget }           → x402 entry fee (USDC→Pot)
+ *   POST /api/hand      { player, sig?, message? }          → reveal the caller's sealed hand
+ *   POST /api/move      { player, signedGameplay, kind, card?, chosenColor? } → gasless legal move
+ *   GET  /api/state                                        → public board, turn, winner, payout
  *   GET  /api/health
  */
 import { serve } from "@hono/node-server";
 import { Hono, type Context } from "hono";
 import type { SignedDelegation } from "@nexus/core";
+import { LocalSecrets, type Sealed, type AccessCondition } from "@nexus/secrets";
 import type { Address, Hex } from "@nexus/types";
 import {
   type UnoEngine,
@@ -27,22 +39,33 @@ import {
   creditDeposit,
   dealHand,
   getCurrentTurn,
-  getWinner,
   getEngine,
   openPot,
+  randomShuffleWord,
   redeemMove,
+  setTurnDirection,
   settlePot,
   startRoom,
   startTurns,
   waitForTurn,
 } from "../lib/engine";
 import { deployment } from "../lib/deployment";
-import { HAND_SIZE } from "../lib/hand";
+import { UnoGame, HAND_SIZE } from "../lib/uno-game";
+import { type UnoCard, cardLabel, isWildCard, legalPlays, REVERSE } from "../lib/uno-rules";
 import { ENTRY_FEE_USDC } from "../lib/config";
 
 const PORT = Number(process.env.UNO_BACKEND_PORT ?? 8790);
 
-// ── single live game state (in-memory) ───────────────────────────────────────
+// Sealed-hand secrets layer (real AES-256-GCM). The owner-only access condition
+// is evaluated by LocalSecrets' default predicate against an injected owner.
+const secrets = new LocalSecrets();
+function ownerCondition(): AccessCondition[] {
+  return [{ chain: "base-sepolia", method: "ownerOf", returns: { comparator: "=", value: ":userAddress" } }];
+}
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+// ── single live game state ────────────────────────────────────────────────────
 
 interface Seat {
   address: Address;
@@ -53,9 +76,11 @@ interface GameState {
   roomId: bigint;
   fee: string;
   seats: Seat[];
-  topColor: number;
-  topNumber: number;
-  activeColor: number;
+  game: UnoGame;
+  /** sealed hand blobs per player (real AES-GCM ciphertext) */
+  sealed: Map<Address, Sealed>;
+  shuffleTx: Hex;
+  shuffleWord: bigint;
   winner?: Address;
   payoutTx?: Hex;
   startedPlay: boolean;
@@ -63,7 +88,6 @@ interface GameState {
 }
 
 let game: GameState | null = null;
-// A monotonically increasing room id base so each /new-game is a fresh room.
 let nextRoom = BigInt(Date.now() % 1_000_000) + 1000n;
 
 // Serialize ALL relayer submissions (single key → sequential nonces).
@@ -77,35 +101,51 @@ function serialized<T>(fn: () => Promise<T>): Promise<T> {
 function bigintJson(value: unknown): string {
   return JSON.stringify(value, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
 }
-
-/** Revive a SignedDelegation's numeric fields (salt/maxRedemptions) back to bigint
- *  after JSON transport (the client stringifies bigints). Caveat terms are Hex. */
 function reviveSigned(s: SignedDelegation): SignedDelegation {
   return { ...s, salt: BigInt(s.salt as unknown as string | bigint), maxRedemptions: BigInt(s.maxRedemptions as unknown as string | bigint) };
 }
-/** Send a bigint-safe JSON body through Hono (avoids raw-Response streaming bugs). */
 function json(c: Context, value: unknown, status = 200): Response {
   c.header("content-type", "application/json");
   return c.body(bigintJson(value), status as never);
 }
 
+/** Seal a player's hand with real AES-GCM (owner-only access condition). */
+async function sealHand(hand: UnoCard[]): Promise<Sealed> {
+  return secrets.seal(enc.encode(JSON.stringify(hand)), ownerCondition());
+}
+/** Reveal a player's sealed hand (owner-gated by the secrets predicate). */
+async function revealHand(g: GameState, player: Address): Promise<UnoCard[]> {
+  const sealed = g.sealed.get(player.toLowerCase() as Address);
+  if (!sealed) return [];
+  const bytes = await secrets.reveal(sealed, { caller: player, state: { ownerOf: player.toLowerCase() } });
+  return JSON.parse(dec.decode(bytes)) as UnoCard[];
+}
+/** Re-seal the player's current authoritative hand (called after every mutation). */
+async function reseal(g: GameState, player: Address): Promise<void> {
+  const addr = player.toLowerCase() as Address;
+  g.sealed.set(addr, await sealHand(g.game.handOf(addr)));
+}
+
 function publicGame(g: GameState) {
+  const t = g.game.topState();
   return {
     roomId: g.roomId.toString(),
     fee: g.fee,
-    seats: g.seats.map((s) => ({ address: s.address, role: s.role, paid: s.paid })),
-    board: { topColor: g.topColor, topNumber: g.topNumber, activeColor: g.activeColor },
+    seats: g.seats.map((s) => ({ address: s.address, role: s.role, paid: s.paid, handCount: g.game.handCount(s.address) })),
+    board: { topColor: t.topColor, topValue: t.topValue, activeColor: t.activeColor },
+    direction: g.game.direction,
     winner: g.winner ?? null,
     payoutTx: g.payoutTx ?? null,
     startedPlay: g.startedPlay,
     pot: deployment.pot,
+    shuffleTx: g.shuffleTx,
   };
 }
 
 async function main() {
   console.log("[uno-server] booting on Base Sepolia…");
   const e: UnoEngine = await getEngine();
-  console.log("[uno-server] up. world", deployment.world, "pot", deployment.pot);
+  console.log("[uno-server] up. world", deployment.world, "pot", deployment.pot, "randomness", deployment.randomness);
 
   const app = new Hono();
   app.use("*", async (c, next) => {
@@ -116,9 +156,10 @@ async function main() {
     await next();
   });
 
-  app.get("/api/health", (c) => json(c, { ok: true, world: deployment.world, pot: deployment.pot, usdc: deployment.usdc }));
+  app.get("/api/health", (c) => json(c, { ok: true, world: deployment.world, pot: deployment.pot, usdc: deployment.usdc, randomness: deployment.randomness }));
 
-  // Seat a fresh room: human seat 0, then bots. Deal hands, seed board, open pot.
+  // Seat a fresh room: human seat 0, then bots. ON-CHAIN shuffle → deal → seal
+  // each hand → seed board → open pot.
   app.post("/api/new-game", async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { human?: Address; bots?: Address[]; fee?: string };
     if (!body.human || !Array.isArray(body.bots)) return json(c, { ok: false, error: "human + bots required" }, 400);
@@ -128,35 +169,45 @@ async function main() {
     try {
       const result = await serialized(async () => {
         const roomId = nextRoom++;
-        // Seat the turn order (human first so seat 0 finishes first).
+        // 1) Draw a REAL on-chain random word and deal a full 108-card game from it.
+        const { word, txHash: shuffleTx } = await randomShuffleWord(e);
+        const ug = new UnoGame(order);
+        ug.deal(word);
+        // 2) Seat the turn order on-chain (human seat 0).
         await startTurns(e, roomId, order);
-        // Seed the public board: top = red 5.
-        await startRoom(e, roomId, 1, 5, HAND_SIZE);
-        // Deal each seat HAND_SIZE cards on-chain.
-        for (const a of order) await dealHand(e, roomId, a, HAND_SIZE);
-        // Open the pot for this room.
+        // 3) Seed the public board to the real start card.
+        const top = ug.top;
+        await startRoom(e, roomId, top.color, top.value, HAND_SIZE);
+        // 4) Record each seat's real hand count on-chain.
+        for (const a of order) await dealHand(e, roomId, a, ug.handCount(a));
+        // 5) Open the pot.
         await openPot(e, roomId);
-        return roomId;
+        return { roomId, ug, shuffleTx, word };
       });
+
+      const sealed = new Map<Address, Sealed>();
+      for (const a of order) sealed.set(a.toLowerCase() as Address, await sealHand(result.ug.handOf(a)));
+
       game = {
-        roomId: result,
+        roomId: result.roomId,
         fee,
         seats: order.map((a, i) => ({ address: a, role: i === 0 ? "human" : "bot", paid: false })),
-        topColor: 1,
-        topNumber: 5,
-        activeColor: 1,
+        game: result.ug,
+        sealed,
+        shuffleTx: result.shuffleTx,
+        shuffleWord: result.word,
         startedPlay: false,
         paymentTx: {},
       };
-      console.log(`[uno-server] new game room ${result} seats ${order.length}`);
+      const top = result.ug.top;
+      console.log(`[uno-server] new game room ${result.roomId} seats ${order.length} — on-chain shuffle tx ${result.shuffleTx}, start card ${cardLabel(top)}`);
       return json(c, { ok: true, ...publicGame(game) });
     } catch (err) {
       return json(c, { ok: false, error: err instanceof Error ? err.message : String(err) }, 500);
     }
   });
 
-  // x402 entry fee: redeem the player's budget delegation (transferFrom→Pot) and
-  // record the deposit in the pot ledger. Real USDC moves from the player's wallet.
+  // x402 entry fee (unchanged proven rail).
   app.post("/api/charge", async (c) => {
     if (!game) return json(c, { ok: false, error: "no game" }, 400);
     const body = (await c.req.json().catch(() => ({}))) as { player?: Address; signedBudget?: SignedDelegation };
@@ -182,15 +233,32 @@ async function main() {
     }
   });
 
-  // A gasless move: redeem the player's gameplay delegation (play/draw). On a win
-  // the pot is settled to the winner immediately.
+  // Reveal the caller's OWN sealed hand (owner-gated by the secrets predicate),
+  // plus the indices that are currently legal to play.
+  app.post("/api/hand", async (c) => {
+    if (!game) return json(c, { ok: false, error: "no game" }, 400);
+    const body = (await c.req.json().catch(() => ({}))) as { player?: Address };
+    if (!body.player) return json(c, { ok: false, error: "player required" }, 400);
+    const g = game;
+    try {
+      const hand = await revealHand(g, body.player);
+      const legal = legalPlays(hand, g.game.topState());
+      return json(c, { ok: true, hand, legal, handCount: hand.length });
+    } catch (err) {
+      return json(c, { ok: false, error: err instanceof Error ? err.message : String(err) }, 403);
+    }
+  });
+
+  // A gasless legal move: validate against the full-rules engine, mirror it
+  // on-chain (real card + turn effect), reseal affected hands, settle on win.
   app.post("/api/move", async (c) => {
     if (!game) return json(c, { ok: false, error: "no game" }, 400);
     const body = (await c.req.json().catch(() => ({}))) as {
       player?: Address;
       signedGameplay?: SignedDelegation;
       kind?: "play" | "draw";
-      card?: { color: number; number: number };
+      card?: UnoCard;
+      chosenColor?: number;
     };
     if (!body.player || !body.signedGameplay || !body.kind) return json(c, { ok: false, error: "player + signedGameplay + kind required" }, 400);
     const g = game;
@@ -198,52 +266,91 @@ async function main() {
 
     try {
       const out = await serialized(async () => {
-        // Turn guard (read-after-write tolerant).
+        // On-chain turn guard (read-after-write tolerant).
         const ok = await waitForTurn(e, g.roomId, body.player!, 3);
         if (!ok) {
           const cur = await getCurrentTurn(e, g.roomId);
           throw new Error(`not your turn (current ${cur})`);
         }
-        const move = await redeemMove(e, reviveSigned(body.signedGameplay!), g.roomId, body.kind!, body.card);
-        // Reflect the board.
-        if (body.kind === "play" && body.card) {
-          if (body.card.color === 0) {
-            g.topColor = 0;
-            g.topNumber = 0;
-            g.activeColor = body.card.number;
-          } else {
-            g.topColor = body.card.color;
-            g.topNumber = body.card.number;
-            g.activeColor = body.card.color;
+
+        const directionBefore = g.game.direction;
+
+        if (body.kind === "play") {
+          if (!body.card) throw new Error("card required for a play");
+          // 1) Validate WITHOUT mutating (throws on illegal). Then commit + apply.
+          g.game.validatePlay(body.player!, body.card);
+          const effect = g.game.play(body.player!, body.card, body.chosenColor);
+          const newCount = g.game.handCount(body.player!);
+          const activeColor = g.game.activeColor;
+          // advanceBy: 2 if the play skips the next player (Skip / Draw Two / WD4,
+          // and Reverse in 2-player); else 1.
+          const advanceBy = effect.skipped >= 1 ? 2 : 1;
+
+          // 2) If direction flipped (Reverse, >2 players), reflect it on-chain
+          //    BEFORE the move's advance so the on-chain cursor tracks the engine.
+          if (effect.reversed && g.game.seats.length > 2) {
+            await setTurnDirection(e, g.roomId, g.game.direction as 1 | -1);
           }
+
+          // 3) Record the REAL card on-chain (gasless, turn-bound) — except on a
+          //    win, where advanceBy is ignored by the contract.
+          const move = await redeemMove(e, reviveSigned(body.signedGameplay!), g.roomId, "play", {
+            color: body.card.color,
+            value: body.card.value,
+            activeColor,
+            newHandCount: newCount,
+            advanceBy: newCount === 0 ? 1 : advanceBy,
+          });
+
+          // 4) Reseal the mover's hand and any forced-draw target's hand.
+          await reseal(g, body.player!);
+          if (effect.forcedDrawTarget) await reseal(g, effect.forcedDrawTarget);
+
+          g.startedPlay = true;
+          const winner = move.winner ?? (g.game.winner as Address | undefined);
+          let payoutTx: Hex | undefined;
+          if (winner) {
+            g.winner = winner;
+            payoutTx = await settlePot(e, g.roomId, winner);
+            g.payoutTx = payoutTx;
+            console.log(`[uno-server] WINNER ${winner} — pot settled tx ${payoutTx}`);
+          }
+          return { txHash: move.txHash, winner, payoutTx, effect, directionBefore };
         }
+
+        // DRAW: the current player draws one. If the drawn card is not playable
+        // the turn passes (advanceBy 1); if playable they keep the turn (0) and
+        // will play next.
+        const { playable } = g.game.draw(body.player!);
+        const newCount = g.game.handCount(body.player!);
+        const advanceBy = playable ? 0 : 1;
+        const move = await redeemMove(e, reviveSigned(body.signedGameplay!), g.roomId, "draw", { newHandCount: newCount, advanceBy });
+        await reseal(g, body.player!);
         g.startedPlay = true;
-        // Win + settle.
-        const winner = move.winner ?? (await getWinner(e, g.roomId));
-        let payoutTx: Hex | undefined;
-        if (winner) {
-          g.winner = winner;
-          payoutTx = await settlePot(e, g.roomId, winner);
-          g.payoutTx = payoutTx;
-          console.log(`[uno-server] WINNER ${winner} — pot settled tx ${payoutTx}`);
-        }
-        return { move, winner, payoutTx };
+        return { txHash: move.txHash, winner: undefined as Address | undefined, payoutTx: undefined as Hex | undefined, playable };
       });
-      return json(c, { ok: true, txHash: out.move.txHash, board: { topColor: g.topColor, topNumber: g.topNumber, activeColor: g.activeColor }, winner: out.winner ?? null, payoutTx: out.payoutTx ?? null });
+
+      const t = g.game.topState();
+      return json(c, {
+        ok: true,
+        txHash: out.txHash,
+        board: { topColor: t.topColor, topValue: t.topValue, activeColor: t.activeColor },
+        direction: g.game.direction,
+        winner: out.winner ?? null,
+        payoutTx: out.payoutTx ?? null,
+        playable: (out as { playable?: boolean }).playable,
+      });
     } catch (err) {
-      return json(c, { ok: false, error: err instanceof Error ? err.message : String(err) }, 500);
+      const msg = err instanceof Error ? err.message : String(err);
+      // Map rule rejections to 409 so callers don't treat them as server errors.
+      const ruleReject = /NOT_YOUR_TURN|ILLEGAL_MOVE|CARD_NOT_IN_HAND|BAD_COLOR|already won/.test(msg);
+      return json(c, { ok: false, error: msg }, ruleReject ? 409 : 500);
     }
   });
 
   app.get("/api/state", async (c) => {
     if (!game) return json(c, { ok: false, error: "no game" }, 404);
-    let currentTurn: Address | null = null;
-    try {
-      currentTurn = await getCurrentTurn(e, game.roomId);
-    } catch {
-      /* transient */
-    }
-    return json(c, { ok: true, ...publicGame(game), currentTurn });
+    return json(c, { ok: true, ...publicGame(game), currentTurn: game.game.currentPlayer() });
   });
 
   serve({ fetch: app.fetch, port: PORT }, (info) => {

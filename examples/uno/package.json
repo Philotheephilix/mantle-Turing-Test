@@ -8,6 +8,7 @@
     "fund-players": "tsx scripts/fund-players.ts",
     "server": "tsx scripts/server.ts",
     "bots": "tsx scripts/bots.ts",
+    "smoke": "tsx scripts/smoke.ts",
     "dev": "next dev -p 3100",
     "build": "next build",
     "start": "next start -p 3100",

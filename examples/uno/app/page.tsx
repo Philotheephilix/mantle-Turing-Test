@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Card, type UnoCard, colorName } from "../components/Card";
+import { Card, colorName } from "../components/Card";
 import { UnoClient, type GameView } from "../lib/uno-client";
-import { dealHand, chooseMove, isLegal as cardLegal, type Board } from "../lib/hand";
+import { type UnoCard, type TopState, isWildCard } from "../lib/uno-rules";
 import { getGuestAccount, privyEnabled } from "../lib/signer";
 import { POT_ADDRESS } from "../lib/deployment";
 import type { LocalAccount } from "viem/accounts";
@@ -21,15 +21,15 @@ export default function Home() {
   const [phase, setPhase] = useState<Phase>("connect");
   const [view, setView] = useState<GameView | null>(null);
   const [hand, setHand] = useState<UnoCard[]>([]);
+  const [legal, setLegal] = useState<number[]>([]);
   const [paymentTx, setPaymentTx] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [wildPick, setWildPick] = useState<{ index: number; card: UnoCard } | null>(null);
 
   const clientRef = useRef<UnoClient | null>(null);
   const paidRef = useRef(false);
-  // After we move, the polled turn lags ~2s; this guard blocks a double-submit
-  // until the server confirms the turn has left us (advanced to an opponent).
   const [awaitingAdvance, setAwaitingAdvance] = useState(false);
 
   const addLog = useCallback((m: string) => {
@@ -47,80 +47,71 @@ export default function Home() {
     setError(null);
     const a = getGuestAccount();
     setAccount(a);
-    setHand(dealHand(a.address));
     setPhase("waiting");
     addLog(`connected as guest wallet ${short(a.address)}`);
   }, [addLog]);
 
-  const board: Board = view
-    ? view.board
-    : { topColor: 1, topNumber: 5, activeColor: 1 };
-
-  const mySeat = useMemo(() => {
-    if (!account || !view) return null;
-    return view.seats.find((s) => s.address.toLowerCase() === account.address.toLowerCase()) ?? null;
-  }, [account, view]);
+  const board: TopState = view ? view.board : { topColor: 1, topValue: 5, activeColor: 1 };
 
   const turnIsMine = Boolean(
     account && view?.currentTurn && view.currentTurn.toLowerCase() === account.address.toLowerCase(),
   );
-  // It's actionably our turn only once the server confirms the turn is ours AND we
-  // haven't already moved this turn (awaitingAdvance is a brief debounce after a
-  // move so the lagging 2s poll can't trigger a duplicate out-of-turn submit).
   const myTurn = turnIsMine && !awaitingAdvance;
 
-  // Clear the post-move guard either when the polled turn has advanced off us, or
-  // after a short debounce (covers the case where the turn cycles back to us
-  // between two polls, so `turnIsMine` is never observed false).
   useEffect(() => {
     if (!turnIsMine && awaitingAdvance) setAwaitingAdvance(false);
   }, [turnIsMine, awaitingAdvance]);
   useEffect(() => {
     if (!awaitingAdvance) return;
-    const id = setTimeout(() => setAwaitingAdvance(false), 3000);
+    const id = setTimeout(() => setAwaitingAdvance(false), 3500);
     return () => clearTimeout(id);
   }, [awaitingAdvance]);
 
-  // Poll the game state from the server.
+  // Poll the public state.
   useEffect(() => {
     if (!client || phase === "connect") return;
     let alive = true;
     const tick = async () => {
       try {
         const st = await client.state();
-        if (!alive) return;
-        if (st.ok) {
-          setView(st);
-          if (mySeatPhaseAdvance(st)) {
-            // promote phase from waiting → lobby once seated
-          }
+        if (!alive || !st.ok) return;
+        setView(st);
+        const seat = account && st.seats.find((s) => s.address.toLowerCase() === account.address.toLowerCase());
+        if (seat) {
+          setPhase((p) => {
+            if (st.winner) return "done";
+            if (p === "waiting") return "lobby";
+            if (p === "lobby" && seat.paid) return "playing";
+            return p;
+          });
         }
       } catch {
         /* transient */
       }
     };
-    const mySeatPhaseAdvance = (st: GameView & { ok: boolean }) => {
-      const seat = account && st.seats.find((s) => s.address.toLowerCase() === account.address.toLowerCase());
-      if (seat) {
-        setPhase((p) => {
-          if (st.winner) return "done";
-          if (p === "waiting") return "lobby";
-          if (p === "lobby" && seat.paid) return "playing";
-          if (p === "playing" && st.winner) return "done";
-          return p;
-        });
-      }
-      return Boolean(seat);
-    };
     void tick();
-    const id = setInterval(tick, 2000);
+    const id = setInterval(tick, 1800);
     return () => {
       alive = false;
       clearInterval(id);
     };
   }, [client, phase, account]);
 
-  // Reflect winner → done.
+  // Refresh our private (sealed) hand whenever the board changes or our turn comes.
+  useEffect(() => {
+    if (!client || (phase !== "playing" && phase !== "done")) return;
+    let alive = true;
+    (async () => {
+      const r = await client.hand().catch(() => null);
+      if (!alive || !r || !r.ok) return;
+      setHand(r.hand);
+      setLegal(r.legal);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [client, phase, view?.board?.topColor, view?.board?.topValue, view?.board?.activeColor, view?.currentTurn]);
+
   useEffect(() => {
     if (view?.winner) setPhase("done");
   }, [view?.winner]);
@@ -148,22 +139,23 @@ export default function Home() {
     }
   }, [client, view, addLog]);
 
-  const playCard = useCallback(
-    async (idx: number) => {
+  const submitPlay = useCallback(
+    async (card: UnoCard, chosenColor: number) => {
       if (!client || !view) return;
-      const c = hand[idx];
-      if (!c || !cardLegal(c, board)) return;
       setBusy(true);
       setError(null);
       try {
-        const isWild = c.wild || c.color === 0;
-        const args = isWild ? { color: 0, number: 1 } : { color: c.color, number: c.number };
-        addLog(`playing ${isWild ? "wild" : `${colorName(c.color)} ${c.number}`} (gasless move)…`);
-        const res = await client.move(view.roomId, "play", args);
+        const label = isWildCard(card) ? `wild → ${colorName(chosenColor)}` : `${colorName(card.color)} ${card.value <= 9 ? card.value : "action"}`;
+        addLog(`playing ${label} (gasless move)…`);
+        const res = await client.move(view.roomId, "play", card, chosenColor);
         if (!res.ok || !res.txHash) throw new Error(res.error ?? "move rejected");
         addLog(`move landed — tx ${res.txHash}`);
-        setHand((h) => h.filter((_, i) => i !== idx));
         setAwaitingAdvance(true);
+        const r = await client.hand().catch(() => null);
+        if (r?.ok) {
+          setHand(r.hand);
+          setLegal(r.legal);
+        }
         if (res.winner) {
           addLog(`WINNER ${short(res.winner)} — pot payout tx ${res.payoutTx}`);
           setPhase("done");
@@ -175,7 +167,20 @@ export default function Home() {
         setBusy(false);
       }
     },
-    [client, view, hand, board, addLog],
+    [client, view, addLog],
+  );
+
+  const onCardClick = useCallback(
+    (idx: number) => {
+      const c = hand[idx];
+      if (!c || !legal.includes(idx)) return;
+      if (isWildCard(c)) {
+        setWildPick({ index: idx, card: c }); // open color picker
+        return;
+      }
+      void submitPlay(c, c.color);
+    },
+    [hand, legal, submitPlay],
   );
 
   const drawCard = useCallback(async () => {
@@ -185,9 +190,13 @@ export default function Home() {
       addLog("drawing a card (gasless move)…");
       const res = await client.move(view.roomId, "draw");
       if (!res.ok || !res.txHash) throw new Error(res.error ?? "draw rejected");
-      addLog(`drew — tx ${res.txHash}`);
-      setHand((h) => [...h, { color: 0, number: 0, wild: true }]);
-      setAwaitingAdvance(true);
+      addLog(`drew — ${res.playable ? "playable, your turn continues" : "passed"} — tx ${res.txHash}`);
+      if (!res.playable) setAwaitingAdvance(true);
+      const r = await client.hand().catch(() => null);
+      if (r?.ok) {
+        setHand(r.hand);
+        setLegal(r.legal);
+      }
     } catch (e) {
       addLog(`draw error: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -195,19 +204,27 @@ export default function Home() {
     }
   }, [client, view, addLog]);
 
-  // Auto-play helper for the human seat: chooses the best legal card on its turn.
+  // Auto-play: pick the first legal card (choosing the most-held color for wilds).
   const autoPlay = useCallback(async () => {
     if (!myTurn || busy || phase !== "playing") return;
-    const choice = chooseMove(hand, board);
-    if (choice) await playCard(choice.index);
-    else await drawCard();
-  }, [myTurn, busy, phase, hand, board, playCard, drawCard]);
+    if (legal.length === 0) {
+      await drawCard();
+      return;
+    }
+    const idx = legal[0];
+    const c = hand[idx];
+    if (isWildCard(c)) {
+      const counts = [0, 0, 0, 0, 0];
+      for (const h of hand) if (!isWildCard(h) && h.color >= 1 && h.color <= 4) counts[h.color]++;
+      let best = 1;
+      for (let k = 2; k <= 4; k++) if (counts[k] > counts[best]) best = k;
+      await submitPlay(c, best);
+    } else {
+      await submitPlay(c, c.color);
+    }
+  }, [myTurn, busy, phase, legal, hand, drawCard, submitPlay]);
 
-  const topCard: UnoCard = {
-    color: board.topColor,
-    number: board.topNumber,
-    wild: board.topColor === 0,
-  };
+  const topCard: UnoCard = { color: board.topColor, value: board.topValue };
 
   return (
     <main className="relative mx-auto min-h-screen max-w-6xl px-6 py-10">
@@ -217,7 +234,7 @@ export default function Home() {
             NEXUS <span className="text-uno-yellow">UNO</span>
           </h1>
           <p className="mt-1 text-sm text-white/55">
-            Fully onchain · gasless moves · 1 USDC entry via x402 · vs bots · Base Sepolia
+            Full official ruleset · 108-card deck · gasless moves · x402 entry · sealed hands · on-chain shuffle · Base Sepolia
           </p>
         </div>
         <div className="text-right text-xs text-white/50 ledger">
@@ -233,7 +250,7 @@ export default function Home() {
               <div className="text-6xl">🃏</div>
               <h2 className="text-2xl font-semibold">Sit down at the table</h2>
               <p className="max-w-md text-white/60">
-                Connect a self-custodial <b>guest wallet</b> to join the game against the bots.
+                Connect a self-custodial <b>guest wallet</b> to join a real game of UNO against the bots.
               </p>
               <button
                 type="button"
@@ -259,9 +276,8 @@ export default function Home() {
             <div className="flex min-h-[420px] flex-col items-center justify-center gap-6 text-center">
               <h2 className="text-2xl font-semibold">Buy in to the pot</h2>
               <p className="max-w-md text-white/60">
-                The entry fee is <b>{view?.fee ?? "1"} USDC</b>, paid as a real x402 charge from{" "}
-                <b>your</b> wallet to the Pot at {short(POT_ADDRESS)} — bounded on-chain by your
-                budget delegation.
+                The entry fee is <b>{view?.fee ?? "1"} USDC</b>, paid as a real x402 charge from <b>your</b> wallet to the
+                Pot at {short(POT_ADDRESS)} — bounded on-chain by your budget delegation.
               </p>
               <button
                 type="button"
@@ -288,10 +304,10 @@ export default function Home() {
                 <div className="flex flex-col items-center gap-2">
                   <div className="text-xs uppercase tracking-widest text-white/40">discard</div>
                   <div data-testid="discard-top">
-                    <Card card={topCard} disabled small={false} />
+                    <Card card={topCard} disabled />
                   </div>
                   <div className="ledger text-xs text-white/50" data-testid="active-color">
-                    active: {colorName(board.activeColor)}
+                    active: {colorName(board.activeColor)} · {view?.direction === -1 ? "↺ ccw" : "↻ cw"}
                   </div>
                 </div>
                 <div className="flex flex-col items-center gap-2">
@@ -332,11 +348,11 @@ export default function Home() {
                 <div className="flex flex-wrap items-end gap-3" data-testid="hand">
                   {hand.map((c, i) => (
                     <Card
-                      key={`${c.color}-${c.number}-${i}`}
+                      key={`${c.color}-${c.value}-${i}`}
                       card={c}
                       testid={`hand-card-${i}`}
-                      disabled={busy || !myTurn || phase === "done" || !cardLegal(c, board)}
-                      onClick={() => playCard(i)}
+                      disabled={busy || !myTurn || phase === "done" || !legal.includes(i)}
+                      onClick={() => onCardClick(i)}
                     />
                   ))}
                 </div>
@@ -374,10 +390,20 @@ export default function Home() {
               <Row k="Room" v={view?.roomId ?? "—"} />
               <Row k="Seats" v={view ? String(view.seats.length) : "—"} />
               <Row k="Pot" v={short(POT_ADDRESS)} />
-              <Row k="Top card" v={`${colorName(board.topColor)} ${board.topNumber}`} />
+              <Row k="Top card" v={`${colorName(board.topColor)} ${board.topValue <= 9 ? board.topValue : "action"}`} />
               <Row k="Turn" v={short(view?.currentTurn)} />
               <Row k="Winner" v={short(view?.winner)} />
             </dl>
+            {view?.shuffleTx && (
+              <a
+                href={`https://sepolia.basescan.org/tx/${view.shuffleTx}`}
+                target="_blank"
+                rel="noreferrer"
+                className="ledger mt-2 block break-all text-[10px] text-white/40 underline"
+              >
+                on-chain shuffle {short(view.shuffleTx)}
+              </a>
+            )}
             {view?.winner && (
               <div data-testid="winner-banner" className="mt-3 rounded-lg bg-uno-green/15 p-2 text-center text-sm font-bold text-uno-green">
                 WINNER {short(view.winner)}
@@ -410,6 +436,35 @@ export default function Home() {
           )}
         </aside>
       </div>
+
+      {/* Wild color picker */}
+      {wildPick && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center shadow-2xl">
+            <h3 className="mb-5 text-lg font-semibold">Pick a color for your wild</h3>
+            <div className="flex gap-4">
+              {[1, 2, 3, 4].map((col) => (
+                <button
+                  key={col}
+                  type="button"
+                  data-testid={`wild-color-${col}`}
+                  onClick={() => {
+                    const p = wildPick;
+                    setWildPick(null);
+                    void submitPlay(p.card, col);
+                  }}
+                  className="h-16 w-16 rounded-2xl border-2 border-white/20 transition hover:scale-110"
+                  style={{ background: ["", "#e4002b", "#3aa935", "#0073cf", "#ffcc00"][col] }}
+                  aria-label={colorName(col)}
+                />
+              ))}
+            </div>
+            <button type="button" onClick={() => setWildPick(null)} className="mt-5 text-xs text-white/40 underline">
+              cancel
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

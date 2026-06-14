@@ -8,49 +8,58 @@ import {UnoTable} from "./UnoTable.sol";
 
 /**
  * @title UnoGameSystem
- * @notice A rules-simplified, fully on-chain UNO system following the Nexus
- *         World/System/_msgSender + TurnManager pattern.
+ * @notice The on-chain record + turn enforcer for a REAL, full-rules game of UNO.
  *
- *         Hidden card identities are NOT on-chain — each player's cards are dealt
- *         client-side (a deterministic, seeded hand) and only the public board
- *         state lives in `UnoTable`: the top of the discard pile, the active
- *         color, the CURRENT player's hand count, and the last mover.
+ *         The authoritative full-rules engine (deck, every player's private hand,
+ *         legality, action effects, reshuffles, win) runs in the backend, which
+ *         holds the SEALED hands (Nexus LocalSecrets) and seeds the deck order from an
+ *         ON-CHAIN random word (RandomnessCoordinator). Hands are private, so they
+ *         are NOT on-chain.
  *
- *         Per-player hand COUNTS *are* tracked on-chain (in this contract's own
- *         storage) so the win condition is decided by the chain, not off-chain:
- *         the first player to empty their hand emits `Uno_Won` and the room is
- *         marked finished (no further advance). The pot is then settled to the
- *         winner by the `Pot` contract.
+ *         What IS on-chain, enforced here per move via the player's gameplay
+ *         delegation (gasless, turn-bound through the TurnManager):
+ *           - the REAL card played: (color, value) — value 0..9 for a number card,
+ *             10=Skip 11=Reverse 12=Draw Two 13=Wild 14=Wild Draw Four — plus the
+ *             chosen active color for a wild;
+ *           - each player's remaining hand COUNT (attested by the authoritative
+ *             server, which alone can see the private hand);
+ *           - the win: the first player whose attested count reaches 0 emits
+ *             `Uno_Won` and the room is finished (no further advance). The Pot then
+ *             settles to that winner.
  *
- *         Moves, both turn-enforced on-chain via the TurnManager:
- *           - playCard(roomId, color, number): legal iff it matches the active
- *             color OR the top number. A wild (color==0) sets a new active color
- *             (`number` = chosen color 1..4) and is always legal.
- *           - draw(roomId): the current player draws (their hand count +1) and passes.
+ *         Turn order is enforced ON-CHAIN against the TurnManager. The contract
+ *         records the real card and the authoritative remaining count; it trusts
+ *         the turn-bound, relayed caller (the authoritative server) for the hand
+ *         count and card possession, since the private hand cannot be on-chain.
  *
- *         Legality is enforced ON-CHAIN against the public top card. Possession of
- *         the played card is attested by the client-derived hand; this contract
- *         trusts the relayed, turn-bound caller for possession.
+ *         `advanceBy` lets the server reflect action-card turn effects on-chain:
+ *         a Skip / Draw Two / Wild Draw Four advances the TurnManager by 2 seats
+ *         instead of 1 so the on-chain current player tracks the real game.
  */
 contract UnoGameSystem is System {
     address public immutable turnManager;
     address public admin;
 
-    // roomId => player => remaining hand count.
+    // roomId => player => remaining hand count (attested by the server).
     mapping(uint256 => mapping(address => uint8)) public handOf;
     // roomId => winner (address(0) until won).
     mapping(uint256 => address) public winnerOf;
 
     error Uno_NotYourTurn();
-    error Uno_IllegalMove();
     error Uno_NotAdmin();
     error Uno_BadColor();
+    error Uno_BadValue();
     error Uno_Finished();
-    error Uno_NoCards();
+    error Uno_BadAdvance();
 
-    event Uno_Started(uint256 indexed roomId, uint8 topColor, uint8 topNumber, uint8 handCount);
+    event Uno_Started(uint256 indexed roomId, uint8 topColor, uint8 topValue, uint8 handCount);
     event Uno_Played(
-        uint256 indexed roomId, address indexed player, uint8 color, uint8 number, uint8 activeColor, uint8 handCount
+        uint256 indexed roomId,
+        address indexed player,
+        uint8 color,
+        uint8 value,
+        uint8 activeColor,
+        uint8 handCount
     );
     event Uno_Drew(uint256 indexed roomId, address indexed player, uint8 handCount);
     event Uno_Won(uint256 indexed roomId, address indexed winner);
@@ -66,8 +75,7 @@ contract UnoGameSystem is System {
     }
 
     /// @notice Seed a room's public board (admin-only, off the redemption path).
-    ///         The starting discard top. Does NOT deal hands — call `dealHand` per seat.
-    function startRoom(uint256 roomId, uint8 topColor, uint8 topNumber, uint8 handCount) external {
+    function startRoom(uint256 roomId, uint8 topColor, uint8 topValue, uint8 handCount) external {
         if (msg.sender != admin) revert Uno_NotAdmin();
         if (topColor < 1 || topColor > 4) revert Uno_BadColor();
         winnerOf[roomId] = address(0);
@@ -77,69 +85,61 @@ contract UnoGameSystem is System {
             roomId,
             UnoTable.UnoData({
                 topColor: topColor,
-                topNumber: topNumber,
+                topNumber: topValue,
                 activeColor: topColor,
                 handCount: handCount,
                 lastMover: address(0)
             })
         );
-        emit Uno_Started(roomId, topColor, topNumber, handCount);
+        emit Uno_Started(roomId, topColor, topValue, handCount);
     }
 
-    /// @notice Deal `count` cards to `player` in `roomId` (admin-only, off the redemption path).
+    /// @notice Set `player`'s remaining hand count (admin-only; used at deal time).
     function dealHand(uint256 roomId, address player, uint8 count) external {
         if (msg.sender != admin) revert Uno_NotAdmin();
         handOf[roomId][player] = count;
     }
 
     /**
-     * @notice Play a card onto the discard pile. Turn- and rule-enforced on-chain.
-     * @param color 1..4 for a colored card, or 0 for a WILD (then `number` is the
-     *        chosen new active color 1..4).
-     * @param number 0..9 for a colored card; for a wild, the chosen color 1..4.
+     * @notice Record a REAL card play. Turn-enforced on-chain; the authoritative
+     *         server attests the played card and the player's new hand count.
+     * @param color       0 for a wild, else 1..4 (the card's color).
+     * @param value       0..9 number, or 10=Skip 11=Reverse 12=DrawTwo 13=Wild 14=WD4.
+     * @param activeColor the color now in force (1..4): the card's color, or the
+     *                    chosen color for a wild.
+     * @param newHandCount the player's remaining cards AFTER this play (server-attested).
+     * @param advanceBy   how many seats the turn advances (1 normally; 2 for a
+     *                    Skip / Draw Two / Wild Draw Four; in 2-player a Reverse).
      */
-    function playCard(uint256 roomId, uint8 color, uint8 number) external onlyWorld returns (address winner) {
+    function playCard(
+        uint256 roomId,
+        uint8 color,
+        uint8 value,
+        uint8 activeColor,
+        uint8 newHandCount,
+        uint8 advanceBy
+    ) external onlyWorld returns (address winner) {
         IWorld world = IWorld(msg.sender);
         address player = _msgSender();
 
         if (winnerOf[roomId] != address(0)) revert Uno_Finished();
         if (ITurnManager(turnManager).getCurrent(roomId) != player) revert Uno_NotYourTurn();
-        if (handOf[roomId][player] == 0) revert Uno_NoCards();
+        if (color > 4) revert Uno_BadColor();
+        if (value > 14) revert Uno_BadValue();
+        if (activeColor < 1 || activeColor > 4) revert Uno_BadColor();
+        if (advanceBy < 1 || advanceBy > 2) revert Uno_BadAdvance();
 
-        UnoTable.UnoData memory s = UnoTable.get(world, roomId);
-
-        uint8 newActiveColor;
-        uint8 newTopColor;
-        uint8 newTopNumber;
-
-        if (color == 0) {
-            // WILD: number carries the chosen new active color.
-            if (number < 1 || number > 4) revert Uno_BadColor();
-            newActiveColor = number;
-            newTopColor = 0; // wild marker
-            newTopNumber = 0;
-        } else {
-            if (color > 4) revert Uno_BadColor();
-            // Legal iff matches the active color OR the top number.
-            bool matchesColor = (color == s.activeColor);
-            bool matchesNumber = (s.topColor != 0 && number == s.topNumber);
-            if (!matchesColor && !matchesNumber) revert Uno_IllegalMove();
-            newActiveColor = color;
-            newTopColor = color;
-            newTopNumber = number;
-        }
-
-        uint8 newHandCount = handOf[roomId][player] - 1;
         handOf[roomId][player] = newHandCount;
 
-        s.topColor = newTopColor;
-        s.topNumber = newTopNumber;
-        s.activeColor = newActiveColor;
+        UnoTable.UnoData memory s = UnoTable.get(world, roomId);
+        s.topColor = color;
+        s.topNumber = value;
+        s.activeColor = activeColor;
         s.handCount = newHandCount;
         s.lastMover = player;
         UnoTable.set(world, roomId, s);
 
-        emit Uno_Played(roomId, player, newTopColor, newTopNumber, newActiveColor, newHandCount);
+        emit Uno_Played(roomId, player, color, value, activeColor, newHandCount);
 
         if (newHandCount == 0) {
             winnerOf[roomId] = player;
@@ -147,26 +147,35 @@ contract UnoGameSystem is System {
             return player;
         }
 
-        ITurnManager(turnManager).advance(roomId);
+        // Advance the on-chain turn cursor to track the real game (action effects).
+        for (uint8 i = 0; i < advanceBy; i++) {
+            ITurnManager(turnManager).advance(roomId);
+        }
         return address(0);
     }
 
-    /// @notice Draw a card (the caller's hand count +1) and pass the turn.
-    function draw(uint256 roomId) external onlyWorld {
+    /**
+     * @notice Record a draw. Turn-enforced on-chain; the server attests the new
+     *         hand count and whether the turn passes (advanceBy 0 = the player
+     *         drew a playable card and will play it next; 1 = turn passes).
+     */
+    function draw(uint256 roomId, uint8 newHandCount, uint8 advanceBy) external onlyWorld {
         IWorld world = IWorld(msg.sender);
         address player = _msgSender();
         if (winnerOf[roomId] != address(0)) revert Uno_Finished();
         if (ITurnManager(turnManager).getCurrent(roomId) != player) revert Uno_NotYourTurn();
+        if (advanceBy > 1) revert Uno_BadAdvance();
 
-        uint8 newCount = handOf[roomId][player] + 1;
-        handOf[roomId][player] = newCount;
+        handOf[roomId][player] = newHandCount;
 
         UnoTable.UnoData memory s = UnoTable.get(world, roomId);
-        s.handCount = newCount;
+        s.handCount = newHandCount;
         s.lastMover = player;
         UnoTable.set(world, roomId, s);
-        emit Uno_Drew(roomId, player, newCount);
+        emit Uno_Drew(roomId, player, newHandCount);
 
-        ITurnManager(turnManager).advance(roomId);
+        if (advanceBy == 1) {
+            ITurnManager(turnManager).advance(roomId);
+        }
     }
 }

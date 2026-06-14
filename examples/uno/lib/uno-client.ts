@@ -6,17 +6,20 @@
  */
 import type { Address, Hex } from "@nexus/types";
 import type { LocalAccount } from "viem/accounts";
+import type { UnoCard } from "./uno-rules";
 import { signBudgetDelegation, signGameplayDelegation } from "./delegations";
 
 export interface GameView {
   roomId: string;
   fee: string;
-  seats: { address: Address; role: "human" | "bot"; paid: boolean }[];
-  board: { topColor: number; topNumber: number; activeColor: number };
+  seats: { address: Address; role: "human" | "bot"; paid: boolean; handCount: number }[];
+  board: { topColor: number; topValue: number; activeColor: number };
+  direction: 1 | -1;
   winner: Address | null;
   payoutTx: Hex | null;
   startedPlay: boolean;
   pot: Address;
+  shuffleTx?: Hex;
   currentTurn?: Address | null;
 }
 
@@ -44,6 +47,11 @@ export class UnoClient {
     return this.get("/api/state");
   }
 
+  /** Reveal the caller's OWN sealed hand + the legal-play indices. */
+  hand(): Promise<{ ok: boolean; hand: UnoCard[]; legal: number[]; handCount: number; error?: string }> {
+    return this.post("/api/hand", { player: this.account.address });
+  }
+
   /** Sign the budget delegation and pay the entry fee (real USDC → Pot). */
   async pay(pot: Address, fee: string): Promise<{ ok: boolean; txHash?: Hex; error?: string }> {
     const perActionCap = fee; // exactly the fee
@@ -63,13 +71,14 @@ export class UnoClient {
     return s;
   }
 
-  /** Submit a gasless move (play/draw). */
+  /** Submit a gasless move (play/draw). For a wild, pass `chosenColor` (1..4). */
   async move(
     roomId: string,
     kind: "play" | "draw",
-    card?: { color: number; number: number },
-  ): Promise<{ ok: boolean; txHash?: Hex; winner?: Address | null; payoutTx?: Hex | null; error?: string }> {
+    card?: UnoCard,
+    chosenColor?: number,
+  ): Promise<{ ok: boolean; txHash?: Hex; winner?: Address | null; payoutTx?: Hex | null; playable?: boolean; error?: string }> {
     const signedGameplay = await this.gameplay(roomId);
-    return this.post("/api/move", { player: this.account.address, signedGameplay, kind, card });
+    return this.post("/api/move", { player: this.account.address, signedGameplay, kind, card, chosenColor });
   }
 }

@@ -51,6 +51,8 @@ test.beforeAll(async () => {
   context = await chromium.launchPersistentContext(USER_DATA_DIR, {
     headless: true,
     viewport: { width: 1280, height: 900 },
+    // Record the real full-game session to a video demo (flushed on context.close()).
+    recordVideo: { dir: join(import.meta.dirname, "..", "demos", "uno-video"), size: { width: 1280, height: 900 } },
   });
   // Inject the FUNDED human key into the guest wallet localStorage BEFORE any
   // page script runs, so the in-browser guest wallet IS the funded seat-0 player.
@@ -67,7 +69,21 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await context?.close();
+  await context?.close(); // flushes the recorded .webm
+  // Promote the recorded video to a stable demo path.
+  try {
+    const { readdirSync, renameSync, mkdirSync } = await import("node:fs");
+    const vdir = join(import.meta.dirname, "..", "demos", "uno-video");
+    const demos = join(import.meta.dirname, "..", "demos");
+    mkdirSync(demos, { recursive: true });
+    const webm = readdirSync(vdir).find((f) => f.endsWith(".webm"));
+    if (webm) {
+      renameSync(join(vdir, webm), join(demos, "uno-demo.webm"));
+      console.log("[e2e] demo video saved:", join(demos, "uno-demo.webm"));
+    }
+  } catch (e) {
+    console.log("[e2e] video promotion skipped:", e instanceof Error ? e.message : String(e));
+  }
 });
 
 test("multiplayer UNO: human pays (on-chain) → plays to a WIN → pot pays out (on-chain)", async () => {
@@ -116,8 +132,10 @@ test("multiplayer UNO: human pays (on-chain) → plays to a WIN → pot pays out
   console.log(`[e2e] verified on-chain: entry fee USDC Transfer(human → Pot) = ${Number(feeValue) / 1e6} USDC`);
   expect(feeValue).toBeGreaterThan(0n);
 
-  // 4) Play to a WIN. The human plays its turns via the real UI (auto-play picks a
-  //    legal card); the bots play on their turns via the backend script. Loop until
+  // 4) Play a REAL game to a WIN. The human plays its turns via the real UI
+  //    (auto-play picks a legal card from the human's sealed hand; the backend
+  //    bots play their turns). The deck is a real 108-card shuffle, so the winner
+  //    is whoever legally empties their hand first — not a fixed seat. Loop until
   //    the winner banner appears.
   await expect(page.getByTestId("discard-top")).toBeVisible({ timeout: 30_000 });
   const winnerBanner = page.getByTestId("winner-banner");
@@ -125,12 +143,13 @@ test("multiplayer UNO: human pays (on-chain) → plays to a WIN → pot pays out
 
   await expect(async () => {
     if (await winnerBanner.isVisible().catch(() => false)) return; // done
-    // If it's our turn, auto-play a legal card (gasless move).
+    // If it's our turn, auto-play a legal card (gasless move). auto-play resolves
+    // any wild color itself, so no color-picker handling is needed here.
     if (await autoPlay.isEnabled().catch(() => false)) {
       await autoPlay.click().catch(() => {});
     }
-    await expect(winnerBanner).toBeVisible({ timeout: 4000 });
-  }).toPass({ timeout: 180_000 });
+    await expect(winnerBanner).toBeVisible({ timeout: 5000 });
+  }).toPass({ timeout: 900_000 });
 
   await expect(winnerBanner).toContainText("WINNER");
 
@@ -152,6 +171,10 @@ test("multiplayer UNO: human pays (on-chain) → plays to a WIN → pot pays out
   const payoutValue = BigInt(payoutTransfer!.data);
   console.log(`[e2e] verified on-chain: pot payout USDC Transfer(Pot → ${winner}) = ${Number(payoutValue) / 1e6} USDC`);
   expect(payoutValue).toBeGreaterThan(0n);
-  // The human (seat 0, acts first with equal hands) is the deterministic winner.
-  expect(winner).toBe(humanAddress.toLowerCase());
+  // Real shuffled hands → the winner is whichever seat legally emptied first. It
+  // must be one of the funded seats (human or a bot), and match the on-chain
+  // winner shown in the UI banner.
+  const { players } = JSON.parse(readFileSync(join(import.meta.dirname, "..", "players.local.json"), "utf8")) as { players: PlayerKey[] };
+  const seatAddrs = players.map((p) => p.address.toLowerCase());
+  expect(seatAddrs).toContain(winner);
 });

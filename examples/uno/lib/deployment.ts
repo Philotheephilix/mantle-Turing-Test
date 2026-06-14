@@ -12,6 +12,7 @@ export interface UnoDeployment {
   delegationManager: Address;
   turnManager: Address;
   unoGame: Address;
+  randomness: Address;
   unoGameSystemId: Hex;
   usdc: Address;
   pot: Address;

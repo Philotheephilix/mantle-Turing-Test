@@ -14,6 +14,7 @@ import {PerActionCapEnforcer} from "@nexus/contracts/enforcers/PerActionCapEnfor
 import {ERC20TransferAmountEnforcer} from "@nexus/contracts/enforcers/ERC20TransferAmountEnforcer.sol";
 import {AllowedRecipientsEnforcer} from "@nexus/contracts/enforcers/AllowedRecipientsEnforcer.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {RandomnessCoordinator} from "@nexus/contracts/randomness/RandomnessCoordinator.sol";
 import {UnoGameSystem} from "./UnoGameSystem.sol";
 import {UnoTable} from "./UnoTable.sol";
 import {UnoPot} from "./UnoPot.sol";
@@ -47,6 +48,7 @@ contract DeployUno is Script {
         World world = new World();
         NexusDelegationManager manager = new NexusDelegationManager();
         TurnManager tm = new TurnManager(deployer);
+        RandomnessCoordinator randomness = new RandomnessCoordinator();
         UnoGameSystem game = new UnoGameSystem(address(tm));
 
         UnoTable.register(IWorld(address(world)));
@@ -65,8 +67,8 @@ contract DeployUno is Script {
         if (player2 != address(0)) order[1] = player2;
         tm.startTurns(roomId, order, 100000);
 
-        // Seed the public board: top = red 5, current player holds 5 cards.
-        game.startRoom(roomId, 1, 5, 5);
+        // Seed the public board: top = red 5, current player holds 7 cards.
+        game.startRoom(roomId, 1, 5, 7);
 
         TurnBoundEnforcer turnBound = new TurnBoundEnforcer();
         SystemAllowlistEnforcer systemAllowlist = new SystemAllowlistEnforcer();
@@ -97,6 +99,7 @@ contract DeployUno is Script {
         vm.serializeAddress(root, "delegationManager", address(manager));
         vm.serializeAddress(root, "turnManager", address(tm));
         vm.serializeAddress(root, "unoGame", address(game));
+        vm.serializeAddress(root, "randomness", address(randomness));
         vm.serializeBytes32(root, "unoGameSystemId", bytes32("UnoGame"));
         vm.serializeAddress(root, "usdc", usdc);
         vm.serializeAddress(root, "pot", address(pot));

@@ -1,19 +1,22 @@
 /**
- * The UNO bot driver — a backend script that runs the bot players.
+ * The UNO bot driver — runs the bot players against the authoritative full-rules
+ * server.
  *
  *   pnpm --filter @nexus/example-uno bots          # default 2 bots
  *
- * Each bot has a generated + funded key (from players.local.json), signs its OWN
+ * Each bot has a generated + funded key (players.local.json), signs its OWN
  * delegations (gameplay + budget) with its OWN key, pays the entry fee via x402
- * (real USDC from its wallet → Pot), and on its turn submits a gasless move
- * through the server until the game ends.
+ * (real USDC → Pot), and on its turn:
+ *   1. fetches its REAL, server-sealed hand from /api/hand (owner-gated),
+ *   2. picks a LEGAL play by real UNO strategy (lib/bot-strategy.ts) — preferring
+ *      colored action/number matches, choosing its most-held color for wilds — or
+ *      draws when nothing is legal,
+ *   3. submits the move through the SDK exactly like the human.
+ * No random or illegal moves: legality is decided by the server-authoritative
+ * rules and the bot only ever submits a card the server says is legal.
  *
  * This script ALSO orchestrates the game: it calls /api/new-game with the human
- * (seat 0) + bot seats, so the human's browser just connects, discovers its seat
- * via /api/state, pays, and plays its turns. The human (seat 0) acts first and,
- * with equal hands, empties first — so a human win is the deterministic outcome,
- * but the bots will finish the game even if the human is idle (they keep playing
- * on their turns; the on-chain win is whoever empties first).
+ * (seat 0) + bot seats, so the human's browser just connects, pays, and plays.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -22,14 +25,13 @@ import type { Address, Hex } from "@nexus/types";
 import type { SignedDelegation } from "@nexus/core";
 import { getEngine, signBudgetDelegation, signGameplayDelegation } from "../lib/engine";
 import { deployment } from "../lib/deployment";
-import { dealHand, chooseMove, type Board } from "../lib/hand";
+import { type UnoCard, type TopState, cardLabel } from "../lib/uno-rules";
+import { chooseBotMove } from "../lib/bot-strategy";
 import { ENTRY_FEE_USDC } from "../lib/config";
-import type { UnoCard } from "../components/Card";
 
 const SERVER = process.env.UNO_BACKEND_URL ?? "http://localhost:8790";
 const PLAYERS = join(import.meta.dirname, "..", "players.local.json");
 const FEE = process.env.ENTRY_FEE ?? ENTRY_FEE_USDC;
-// Per-action cap must cover the fee; lifetime cap a small multiple.
 const PER_ACTION_CAP = process.env.PER_ACTION_CAP ?? "1";
 const TOTAL_CAP = process.env.TOTAL_CAP ?? "2";
 
@@ -57,7 +59,7 @@ async function main() {
   const bots = players.filter((p) => p.role === "bot");
   if (!human || bots.length === 0) throw new Error("players.local.json needs a human + ≥1 bot (run fund-players)");
 
-  const e = await getEngine();
+  await getEngine();
   console.log(`[bots] ${bots.length} bot(s): ${bots.map((b) => b.address).join(", ")}`);
   console.log(`[bots] human seat: ${human.address}`);
 
@@ -65,22 +67,19 @@ async function main() {
   const newGame = await post("/api/new-game", { human: human.address, bots: bots.map((b) => b.address), fee: FEE });
   if (!newGame.body.ok) throw new Error(`new-game failed: ${JSON.stringify(newGame.body)}`);
   const roomId = newGame.body.roomId as string;
-  console.log(`[bots] game room ${roomId} created; human plays via the browser UI.`);
+  console.log(`[bots] game room ${roomId} created (on-chain shuffle ${newGame.body.shuffleTx}); human plays via the browser UI.`);
 
-  // Per-bot: deterministic hand + signed delegations.
+  // Per-bot: signed delegations (each with its OWN key).
   const botCtx = await Promise.all(
     bots.map(async (b) => {
       const account = privateKeyToAccount(b.privateKey);
-      const hand: UnoCard[] = dealHand(b.address);
       const signedGameplay: SignedDelegation = await signGameplayDelegation(account, BigInt(roomId));
       const signedBudget: SignedDelegation = await signBudgetDelegation(account, deployment.pot, PER_ACTION_CAP, TOTAL_CAP);
-      return { ...b, account, hand, signedGameplay, signedBudget, paid: false };
+      return { ...b, account, signedGameplay, signedBudget, paid: false };
     }),
   );
 
-  // Each bot pays its entry fee (real x402, sequential at the server's queue). A
-  // charge failure (e.g. a drained testnet wallet) is non-fatal: the bot still
-  // takes its gasless turns so the game completes — only its buy-in is skipped.
+  // Each bot pays its entry fee (real x402). A charge failure is non-fatal.
   for (const b of botCtx) {
     const r = await post("/api/charge", { player: b.address, signedBudget: b.signedBudget });
     if (!r.body.ok) {
@@ -91,8 +90,8 @@ async function main() {
     console.log(`[bots] bot#${b.index} PAID ${FEE} USDC — tx ${r.body.txHash}`);
   }
 
-  // Play loop: on each bot's turn, choose + submit a legal move until a winner.
-  const DEADLINE = Date.now() + 8 * 60_000;
+  // Play loop: on each bot's turn, fetch its real hand, pick a legal move, submit.
+  const DEADLINE = Date.now() + 12 * 60_000;
   while (Date.now() < DEADLINE) {
     const st = await getState();
     if (!st.ok) { await sleep(1500); continue; }
@@ -102,28 +101,38 @@ async function main() {
     }
     const current: Address | null = st.currentTurn;
     const bot = botCtx.find((b) => current && b.address.toLowerCase() === current.toLowerCase());
-    if (!bot) { await sleep(1500); continue; } // human's (or another) turn
+    if (!bot) { await sleep(1200); continue; } // human's (or another bot's) turn
 
-    const board: Board = st.board;
-    const choice = chooseMove(bot.hand, board);
+    // Fetch this bot's real, server-sealed hand.
+    const handRes = await post("/api/hand", { player: bot.address });
+    if (!handRes.body.ok) { await sleep(1200); continue; }
+    const hand = handRes.body.hand as UnoCard[];
+    const top: TopState = st.board;
+    const move = chooseBotMove(hand, top);
+
     try {
-      if (!choice) {
+      if (!move) {
         const r = await post("/api/move", { player: bot.address, signedGameplay: bot.signedGameplay, kind: "draw" });
-        if (!r.body.ok) { console.log(`[bots] bot#${bot.index} draw rejected: ${r.body.error}`); await sleep(1500); continue; }
-        bot.hand.push({ color: 0, number: 0, wild: true }); // drew a fallback wild
-        console.log(`[bots] bot#${bot.index} drew — tx ${r.body.txHash}`);
-      } else {
-        const r = await post("/api/move", { player: bot.address, signedGameplay: bot.signedGameplay, kind: "play", card: { color: choice.color, number: choice.number } });
-        if (!r.body.ok) { console.log(`[bots] bot#${bot.index} play rejected: ${r.body.error}`); await sleep(1500); continue; }
-        bot.hand.splice(choice.index, 1);
-        console.log(`[bots] bot#${bot.index} played ${choice.color === 0 ? "WILD→" + choice.number : choice.color + "/" + choice.number} (${bot.hand.length} left) — tx ${r.body.txHash}`);
-        if (r.body.winner) { console.log(`[bots] WINNER ${r.body.winner}; payout tx ${r.body.payoutTx}`); return; }
+        if (!r.body.ok) { console.log(`[bots] bot#${bot.index} draw rejected: ${r.body.error}`); await sleep(1200); continue; }
+        console.log(`[bots] bot#${bot.index} drew (${r.body.playable ? "playable" : "passed"})`);
+        await sleep(600);
+        continue;
       }
+      const r = await post("/api/move", {
+        player: bot.address,
+        signedGameplay: bot.signedGameplay,
+        kind: "play",
+        card: move.card,
+        chosenColor: move.chosenColor,
+      });
+      if (!r.body.ok) { console.log(`[bots] bot#${bot.index} play rejected: ${r.body.error}`); await sleep(1200); continue; }
+      console.log(`[bots] bot#${bot.index} played ${cardLabel(move.card)}${move.card.color === 0 ? ` → ${["", "red", "green", "blue", "yellow"][move.chosenColor]}` : ""} (${hand.length - 1} left) — tx ${r.body.txHash}`);
+      if (r.body.winner) { console.log(`[bots] WINNER ${r.body.winner}; payout tx ${r.body.payoutTx}`); return; }
     } catch (err) {
       console.log(`[bots] bot#${bot.index} move error:`, err instanceof Error ? err.message : err);
-      await sleep(1500);
+      await sleep(1200);
     }
-    await sleep(800);
+    await sleep(700);
   }
   console.log("[bots] deadline reached without a winner.");
 }
