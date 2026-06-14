@@ -1,0 +1,87 @@
+/**
+ * SERVER-ONLY config. NEVER import this from a "use client" component — the
+ * relayer private key must never reach the browser. The Next.js API route
+ * (app/api/gateway) and the deploy/setup scripts import this; the client only
+ * talks to the gateway over HTTP.
+ *
+ * Values come from examples/.shared-env.local (loaded via dotenv) or process.env.
+ */
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+function loadSharedEnv(): void {
+  // examples/.shared-env.local lives two dirs up from examples/monopoly/lib.
+  let here: string;
+  try {
+    here = dirname(fileURLToPath(import.meta.url));
+  } catch {
+    // CJS / bundled fallback
+    here = process.cwd();
+  }
+  const candidates = [
+    resolve(here, "..", "..", ".shared-env.local"),
+    resolve(process.cwd(), "..", ".shared-env.local"),
+    resolve(process.cwd(), "examples", ".shared-env.local"),
+  ];
+  for (const path of candidates) {
+    if (!existsSync(path)) continue;
+    for (const line of readFileSync(path, "utf8").split("\n")) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (!m) continue;
+      const [, k, v] = m;
+      if (process.env[k] === undefined || process.env[k] === "") {
+        process.env[k] = v.replace(/^["']|["']$/g, "");
+      }
+    }
+    break;
+  }
+}
+
+loadSharedEnv();
+
+/**
+ * ⚠️ TESTNET ONLY — hardcoded so the example is self-contained and runnable out of
+ * the box. Base Sepolia test key provided for the demo; holds only testnet
+ * ETH/USDC. ROTATE before any mainnet use; never reuse for real funds.
+ * Overridable via NEXUS_RELAYER_PRIVATE_KEY.
+ */
+export const HARDCODED_RELAYER_KEY =
+  "0x18842c41d9c77a305c3e4c88d75d22c085d60a3e5e2452f5444633167a6dbaae";
+
+export interface MonopolyServerConfig {
+  relayerKey: `0x${string}`;
+  relayerAddress: `0x${string}`;
+  rpcUrl: string;
+  usdc: `0x${string}`;
+  chainId: number;
+  explorer: string;
+}
+
+// ── UNO-style flat exports (server-only) used by lib/engine.ts + scripts ──
+export const RELAYER_PRIVATE_KEY = (process.env.NEXUS_RELAYER_PRIVATE_KEY ||
+  HARDCODED_RELAYER_KEY) as `0x${string}`;
+export const RELAYER_ADDRESS = (process.env.NEXUS_RELAYER_ADDRESS ||
+  "0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD") as `0x${string}`;
+export const BASE_SEPOLIA_RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
+export const BASE_SEPOLIA_CHAIN_ID = 84532;
+
+/** The headline x402 amounts (real USDC on Base Sepolia). Kept tiny so each funded
+ *  testnet player wallet (~0.6 USDC) covers a buy-in plus several buys/rents. */
+export const ENTRY_FEE_USDC = process.env.ENTRY_FEE_USDC || "0.10";
+export const BUY_USDC = process.env.BUY_USDC || "0.05";
+export const RENT_USDC = process.env.RENT_USDC || "0.02";
+
+export function serverConfig(): MonopolyServerConfig {
+  const relayerKey = (process.env.NEXUS_RELAYER_PRIVATE_KEY || HARDCODED_RELAYER_KEY) as `0x${string}`;
+  return {
+    relayerKey,
+    relayerAddress: (process.env.NEXUS_RELAYER_ADDRESS ||
+      "0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD") as `0x${string}`,
+    rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+    usdc: (process.env.USDC_ADDRESS ||
+      "0x036CbD53842c5426634e7929541eC2318f3dCF7e") as `0x${string}`,
+    chainId: 84532,
+    explorer: "https://sepolia.basescan.org",
+  };
+}

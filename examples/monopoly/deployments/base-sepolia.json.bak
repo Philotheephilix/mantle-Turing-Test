@@ -1,0 +1,21 @@
+{
+  "chainId": 84532,
+  "delegationManager": "0xaE3D055c5895F29DBF54e35617AaaFA0B70f86DD",
+  "enforcers": {
+    "allowedRecipients": "0x59edc063961265b0f16D7bF75b49fa6Ad40D1552",
+    "erc20TransferAmount": "0x3f6c62Cb8BEB677bD539bec89B17c1E5620A87AD",
+    "limitedCalls": "0xFa032089d8138ee380E5265d5B01533C5Cc19da2",
+    "perActionCap": "0xD7BF77741589Db1B98342C1f69aE056207D547F8",
+    "systemAllowlist": "0x9Ac0210Ca745967Dd940eA030508c50aB002C344",
+    "timestamp": "0xB87cb2D2f83487Cb95684A034c15EDA6fc542397",
+    "turnBound": "0xb3b0D06A653e98a087918c6AEFE413A2777066Bd"
+  },
+  "monopolyGame": "0x309b669d843778fE197c7Be59758CF70CA8c310F",
+  "monopolyGameSystemId": "0xc5a3bfafbfff9a5398c0d6f759a03d359832b849cd8ab54e458e2e0edca42ed8",
+  "pot": "0xf23Db5D46EcC678C17e406B7459Ad046dd788DCA",
+  "randomness": "0x98B33f0FFeac8e3B48118a176A148306CcCD2354",
+  "roomId": 1,
+  "turnManager": "0x75D1Ec0013836Fd50FEA0A72FE1BCfEa6a35E2d2",
+  "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "world": "0x667B52c9bBbB024D9e09DcBEce720d88Afb6B375"
+}

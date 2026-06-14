@@ -1,0 +1,44 @@
+{
+  "name": "@nexus-examples/monopoly",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "tsx scripts/deploy.ts",
+    "fund-players": "tsx scripts/fund-players.ts",
+    "server": "tsx scripts/server.ts",
+    "bots": "tsx scripts/bots.ts",
+    "dev": "next dev -p 3030",
+    "build": "next build",
+    "start": "next start -p 3030",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "demo": "tsx scripts/record-demo.ts"
+  },
+  "dependencies": {
+    "@nexus/backend": "workspace:*",
+    "@nexus/core": "workspace:*",
+    "@nexus/react": "workspace:*",
+    "@nexus/relayer": "workspace:*",
+    "@nexus/server": "workspace:*",
+    "@nexus/types": "workspace:*",
+    "@hono/node-server": "^1.13.7",
+    "@privy-io/react-auth": "^2.13.0",
+    "hono": "^4.6.14",
+    "next": "^15.1.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "viem": "^2.21.55"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

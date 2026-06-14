@@ -1,0 +1,4 @@
+forge-std/=../../../packages/contracts/lib/forge-std/src/
+@openzeppelin/contracts/=../../../packages/contracts/lib/openzeppelin-contracts/contracts/
+openzeppelin-contracts/=../../../packages/contracts/lib/openzeppelin-contracts/
+@nexus-contracts/=../../../packages/contracts/src/

@@ -35,8 +35,24 @@ function envVar(key: string, fallback?: string): string {
   return process.env[key] ?? localEnv[key] ?? sharedEnv[key] ?? fallback ?? "";
 }
 
-export const RELAYER_PRIVATE_KEY = envVar("NEXUS_RELAYER_PRIVATE_KEY") as `0x${string}`;
-export const RELAYER_ADDRESS = envVar("NEXUS_RELAYER_ADDRESS") as `0x${string}`;
+/**
+ * ⚠️ TESTNET ONLY — hardcoded so the example is self-contained and runnable out of
+ * the box. This is a Base Sepolia test key the project owner provided for the demo;
+ * it holds only testnet ETH/USDC. ROTATE / replace before any mainnet use, and
+ * never reuse it for real funds. Overridable via NEXUS_RELAYER_PRIVATE_KEY.
+ */
+const HARDCODED_RELAYER_KEY =
+  "0x18842c41d9c77a305c3e4c88d75d22c085d60a3e5e2452f5444633167a6dbaae";
+const HARDCODED_RELAYER_ADDRESS = "0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD";
+
+export const RELAYER_PRIVATE_KEY = envVar(
+  "NEXUS_RELAYER_PRIVATE_KEY",
+  HARDCODED_RELAYER_KEY,
+) as `0x${string}`;
+export const RELAYER_ADDRESS = envVar(
+  "NEXUS_RELAYER_ADDRESS",
+  HARDCODED_RELAYER_ADDRESS,
+) as `0x${string}`;
 export const BASE_SEPOLIA_RPC_URL = envVar("BASE_SEPOLIA_RPC_URL", "https://sepolia.base.org");
 export const USDC_ADDRESS = envVar(
   "USDC_ADDRESS",

@@ -1,0 +1,14 @@
+node_modules
+.next
+.turbo
+out
+contracts/out
+contracts/cache
+contracts/broadcast
+test-results
+playwright-report
+.env.local
+*.log
+
+players.local.json
+.e2e-pids.json
