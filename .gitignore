@@ -40,9 +40,14 @@ examples/**/.next/
 examples/**/test-results/
 examples/**/playwright-report/
 
-# example runtime secrets (generated player keys) — never commit
-examples/**/players.local.json
-examples/**/.players.json
+# runtime secrets (generated funded player keys) — never commit, anywhere
+**/players.local.json
+**/players.*.local.json
+**/.players.json
+# next.js mono-app local env (hardcoded testnet key / bundler key) — never commit
+landing/.env.local
+# stray non-pnpm lockfile
+**/bun.lock
 examples/**/playwright/.auth/
 examples/**/.pw-user-data/
 examples/**/out/
