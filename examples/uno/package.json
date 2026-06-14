@@ -19,6 +19,7 @@
   "dependencies": {
     "@hono/node-server": "^1.13.0",
     "@metamask/delegation-toolkit": "0.13.0",
+    "@metamask/smart-accounts-kit": "1.6.0",
     "@nexus/backend": "workspace:*",
     "@nexus/core": "workspace:*",
     "@nexus/react": "workspace:*",

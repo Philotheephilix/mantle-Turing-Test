@@ -5,6 +5,7 @@ import { Card, colorName } from "../components/Card";
 import { UnoClient, type GameView } from "../lib/uno-client";
 import { type UnoCard, type TopState, isWildCard } from "../lib/uno-rules";
 import { connectMetaMask, connectGuest, clearGuest, hasInjectedWallet, type Connection } from "../lib/signer";
+import { connectMetaMaskGrant, type Erc7715Grant } from "../lib/erc7715";
 import { POT_ADDRESS } from "../lib/deployment";
 
 // Same-origin by default: the game backend now runs inside this Next.js app
@@ -32,6 +33,8 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [wildPick, setWildPick] = useState<{ index: number; card: UnoCard } | null>(null);
+  // The ERC-7715 spend grant (MetaMask native popup) — present only on the MetaMask rail.
+  const [grant, setGrant] = useState<Erc7715Grant | null>(null);
 
   const clientRef = useRef<UnoClient | null>(null);
   const paidRef = useRef(false);
@@ -56,6 +59,21 @@ export default function Home() {
         setConn(c);
         setPhase("waiting");
         addLog(`connected ${c.kind === "metamask" ? "MetaMask Smart Account" : "guest wallet"} ${short(c.account.address)}`);
+        // MetaMask rail: grant the SPEND authorization via MetaMask's NATIVE ERC-7715
+        // permission popup (shows the USDC cap / period / justification) instead of an
+        // opaque raw-typed-data signature. Stored backend-side; redeemed at buy-in.
+        if (mode === "metamask") {
+          try {
+            addLog("requesting spend permission — approve the USDC cap in MetaMask…");
+            const { grant: g } = await connectMetaMaskGrant();
+            setGrant(g);
+            const stored = await new UnoClient(BACKEND_URL, c.account).grantSpend(g);
+            if (!stored.ok) throw new Error(stored.error ?? "failed to store grant");
+            addLog(`spend permission granted — up to ${g.capUsd} USDC/day (from ${short(g.from)})`);
+          } catch (ge) {
+            addLog(`spend-permission grant skipped: ${ge instanceof Error ? ge.message : String(ge)}`);
+          }
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       }
@@ -71,6 +89,7 @@ export default function Home() {
   const disconnect = useCallback(() => {
     if (conn?.kind === "guest") clearGuest();
     setConn(null);
+    setGrant(null);
     setView(null);
     setPhase("connect");
     paidRef.current = false;
@@ -181,15 +200,25 @@ export default function Home() {
     setError(null);
     setPhase("paying");
     try {
-      // Player brings their own USDC: make sure the delegation manager is approved
-      // to pull the entry fee (one `approve` — MetaMask popup, or silent for guest).
-      const feeWei = BigInt(Math.round(Number(view.fee) * 1e6));
-      if (conn) {
-        addLog("checking USDC allowance (approve if needed)…");
-        await conn.ensureApproval(feeWei);
+      // MetaMask rail with an ERC-7715 grant: the spend is already authorized by
+      // MetaMask's native popup, redeemed via the canonical DelegationManager — no
+      // budget delegation, no `approve`, no second signature.
+      const useGrant = conn?.kind === "metamask" && grant !== null;
+      let res: { ok: boolean; txHash?: string; error?: string };
+      if (useGrant) {
+        addLog(`paying ${view.fee} USDC entry fee via your MetaMask spend permission (x402)…`);
+        res = await client.payViaGrant();
+      } else {
+        // GUEST rail: bring your own USDC — approve the delegation manager, then
+        // sign + redeem our custom budget delegation (unchanged; keeps the e2e working).
+        const feeWei = BigInt(Math.round(Number(view.fee) * 1e6));
+        if (conn) {
+          addLog("checking USDC allowance (approve if needed)…");
+          await conn.ensureApproval(feeWei);
+        }
+        addLog(`signing budget delegation + paying ${view.fee} USDC entry fee (x402)…`);
+        res = await client.pay(POT_ADDRESS, view.fee);
       }
-      addLog(`signing budget delegation + paying ${view.fee} USDC entry fee (x402)…`);
-      const res = await client.pay(POT_ADDRESS, view.fee);
       if (!res.ok || !res.txHash) throw new Error(res.error ?? "charge failed");
       setPaymentTx(res.txHash);
       addLog(`PAID — real USDC transfer settled, tx ${res.txHash}`);
@@ -202,7 +231,7 @@ export default function Home() {
     } finally {
       setBusy(false);
     }
-  }, [client, view, conn, addLog]);
+  }, [client, view, conn, grant, addLog]);
 
   const submitPlay = useCallback(
     async (card: UnoCard, chosenColor: number) => {
@@ -390,7 +419,10 @@ export default function Home() {
               <h2 className="text-2xl font-semibold">Buy in to the pot</h2>
               <p className="max-w-md text-white/60">
                 The entry fee is <b>{view?.fee ?? "1"} USDC</b>, paid as a real x402 charge from <b>your</b> wallet to the
-                Pot at {short(POT_ADDRESS)} — bounded on-chain by your budget delegation.
+                Pot at {short(POT_ADDRESS)} —{" "}
+                {grant
+                  ? <>bounded by your MetaMask spend permission (<b>{grant.capUsd} USDC/day</b>), redeemed via the canonical DelegationManager.</>
+                  : <>bounded on-chain by your budget delegation.</>}
               </p>
               <button
                 type="button"

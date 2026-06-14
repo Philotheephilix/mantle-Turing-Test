@@ -59,12 +59,29 @@ export class UnoClient {
     return this.post("/api/hand", { player: this.account.address });
   }
 
-  /** Sign the budget delegation and pay the entry fee (real USDC → Pot). */
+  /** Sign the budget delegation and pay the entry fee (real USDC → Pot). GUEST rail. */
   async pay(pot: Address, fee: string): Promise<{ ok: boolean; txHash?: Hex; error?: string }> {
     const perActionCap = fee; // exactly the fee
     const totalCap = (Number(fee) * 2).toString();
     const signedBudget = await signBudgetDelegation(this.account, pot, perActionCap, totalCap);
     return this.post("/api/charge", { player: this.account.address, signedBudget });
+  }
+
+  /** Store a previously-granted ERC-7715 spend authorization for this player. */
+  async grantSpend(grant: {
+    context: Hex;
+    from: Address;
+  }): Promise<{ ok: boolean; error?: string }> {
+    return this.post("/api/grant", {
+      player: this.account.address,
+      context: grant.context,
+      from: grant.from,
+    });
+  }
+
+  /** Pay the entry fee by redeeming the player's ERC-7715 grant. METAMASK rail. */
+  async payViaGrant(): Promise<{ ok: boolean; txHash?: Hex; error?: string }> {
+    return this.post("/api/charge", { player: this.account.address, grant: true });
   }
 
   /** Sign the gameplay delegation once and cache it for the room. */

@@ -35,6 +35,7 @@ import {
   waitForTurn,
 } from "./engine";
 import { deployment } from "./deployment";
+import { chargeViaGrant, type Erc7715GrantContext } from "./erc7715-settle";
 import { UnoGame, HAND_SIZE } from "./uno-game";
 import { type UnoCard, cardLabel, legalPlays } from "./uno-rules";
 import { ENTRY_FEE_USDC } from "./config";
@@ -84,6 +85,8 @@ interface UnoStore {
   enginePromise: Promise<UnoEngine> | null;
   chain: Promise<unknown>;
   secrets: LocalSecrets;
+  /** Per-player ERC-7715 spend grants (player addr → granted permission context). */
+  grants: Map<Address, Erc7715GrantContext>;
 }
 const store: UnoStore = ((globalThis as unknown as { __nexusUnoStore?: UnoStore }).__nexusUnoStore ??= {
   game: null,
@@ -94,6 +97,7 @@ const store: UnoStore = ((globalThis as unknown as { __nexusUnoStore?: UnoStore 
   enginePromise: null,
   chain: Promise.resolve(),
   secrets: new LocalSecrets(),
+  grants: new Map<Address, Erc7715GrantContext>(),
 });
 
 // Engine is created lazily once (relayer wallet + ABIs).
@@ -245,6 +249,65 @@ export async function charge(
     seat.paid = true;
     g.paymentTx[seat.address] = res.txHash;
     console.log(`[uno-backend] ${seat.role} ${seat.address} PAID ${g.fee} USDC tx ${res.txHash}`);
+    return { ok: true, txHash: res.txHash, blockNumber: res.blockNumber };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Store a player's ERC-7715 spend grant (the MetaMask native-popup authorization).
+ * The granted `context` is later redeemed via the CANONICAL MetaMask
+ * DelegationManager to charge the entry fee (see chargeGrant). One grant per player.
+ */
+export function storeGrant(
+  player: Address,
+  grant: Erc7715GrantContext,
+): { ok: boolean; error?: string } {
+  if (!grant.context || !grant.context.startsWith("0x")) {
+    return { ok: false, error: "missing or malformed granted permission context" };
+  }
+  store.grants.set(player.toLowerCase() as Address, {
+    context: grant.context,
+    from: grant.from,
+  });
+  console.log(
+    `[uno-backend] stored ERC-7715 grant for ${player} from ${grant.from} (${(grant.context.length - 2) / 2} bytes)`,
+  );
+  return { ok: true };
+}
+
+/**
+ * x402 entry fee via an ERC-7715 grant: redeem the player's granted permission
+ * context through the canonical MetaMask DelegationManager — a real USDC transfer
+ * from their MetaMask smart account to the Pot. This is the MetaMask/intuitive-popup
+ * counterpart of `charge()` (which redeems our custom budget delegation for guests).
+ */
+export async function chargeGrant(
+  player: Address,
+): Promise<{ ok: boolean; txHash?: Hex; blockNumber?: bigint; alreadyPaid?: boolean; error?: string }> {
+  if (!store.game) return { ok: false, error: "no game" };
+  const g = store.game;
+  const seat = g.seats.find((s) => s.address.toLowerCase() === player.toLowerCase());
+  if (!seat) return { ok: false, error: "not a seat" };
+  if (seat.paid) return { ok: true, txHash: g.paymentTx[seat.address], alreadyPaid: true };
+
+  const grant = store.grants.get(player.toLowerCase() as Address);
+  if (!grant) return { ok: false, error: "no ERC-7715 grant on file — grant a spend permission first" };
+
+  const e = await engine();
+  try {
+    const res = await serialized(async () => {
+      const charged = await chargeViaGrant(grant, deployment.pot, g.fee);
+      // Mirror the deposit into the Pot's accounting (same as the guest charge path).
+      await creditDeposit(e, g.roomId, player, g.fee);
+      return charged;
+    });
+    seat.paid = true;
+    g.paymentTx[seat.address] = res.txHash;
+    console.log(
+      `[uno-backend] ${seat.role} ${seat.address} PAID ${g.fee} USDC via ERC-7715 grant tx ${res.txHash}`,
+    );
     return { ok: true, txHash: res.txHash, blockNumber: res.blockNumber };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
