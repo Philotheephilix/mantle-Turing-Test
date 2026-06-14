@@ -6,6 +6,10 @@ coverage/
 .turbo/
 *.tsbuildinfo
 
+# next.js build output
+.next/
+next-env.d.ts
+
 # env / secrets — NEVER commit
 .env
 .env.*
