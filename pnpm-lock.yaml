@@ -35,6 +35,9 @@ importers:
       '@metamask/delegation-toolkit':
         specifier: 0.13.0
         version: 0.13.0(viem@2.52.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@3.25.76))
+      '@metamask/smart-accounts-kit':
+        specifier: 1.6.0
+        version: 1.6.0(typescript@5.9.3)(viem@2.52.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@3.25.76))(zod@3.25.76)
       '@nexus/backend':
         specifier: workspace:*
         version: link:../../packages/backend

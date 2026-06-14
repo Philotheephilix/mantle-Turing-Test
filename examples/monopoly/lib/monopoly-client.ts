@@ -114,10 +114,29 @@ export class MonopolyClient {
     return s;
   }
 
-  /** Join: sign + submit both delegations and pay the x402 buy-in (real USDC → Pot). */
+  /** Join: sign + submit both delegations and pay the x402 buy-in (real USDC → Pot). GUEST rail. */
   async join(roomId: string, pot: Address): Promise<{ ok: boolean; txHash?: Hex; error?: string }> {
     const [signedGameplay, signedBudget] = await Promise.all([this.gameplay(roomId), this.budget(pot)]);
     return this.post("/api/join", { player: this.address, signedGameplay, signedBudget });
+  }
+
+  /** Store a previously-granted ERC-7715 spend authorization for this player. */
+  async grantSpend(grant: {
+    context: Hex;
+    from: Address;
+  }): Promise<{ ok: boolean; error?: string }> {
+    return this.post("/api/grant", {
+      player: this.address,
+      context: grant.context,
+      from: grant.from,
+    });
+  }
+
+  /** Join + pay the buy-in by redeeming the player's ERC-7715 grant (the gameplay
+   *  delegation is still signed + cached for gasless moves). METAMASK rail. */
+  async joinViaGrant(roomId: string): Promise<{ ok: boolean; txHash?: Hex; error?: string }> {
+    const signedGameplay = await this.gameplay(roomId);
+    return this.post("/api/join", { player: this.address, signedGameplay, grant: true });
   }
 
   /** Run one action through the rules engine (roll / buy / decline / build / mortgage /

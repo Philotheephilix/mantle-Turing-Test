@@ -32,6 +32,7 @@ import {
   startTurns,
 } from "./engine";
 import { deployment } from "./deployment";
+import { chargeViaGrant, type Erc7715GrantContext } from "./erc7715-settle";
 import { DOLLAR_TO_USDC, dollarsToUsdc } from "./board";
 import { MonopolyRules, ROUND_CAP, type Settlement } from "./monopoly-rules";
 import { ENTRY_FEE_USDC } from "./config";
@@ -67,6 +68,8 @@ interface MonopolyStore {
   nextRoom: bigint;
   enginePromise: Promise<MonopolyEngine> | null;
   chain: Promise<unknown>;
+  /** Per-player ERC-7715 spend grants (player addr → granted permission context). */
+  grants: Map<Address, Erc7715GrantContext>;
 }
 const store: MonopolyStore = ((globalThis as unknown as { __nexusMonopolyStore?: MonopolyStore }).__nexusMonopolyStore ??= {
   game: null,
@@ -76,6 +79,7 @@ const store: MonopolyStore = ((globalThis as unknown as { __nexusMonopolyStore?:
   nextRoom: BigInt(Date.now()),
   enginePromise: null,
   chain: Promise.resolve(),
+  grants: new Map<Address, Erc7715GrantContext>(),
 });
 
 function engine(): Promise<MonopolyEngine> {
@@ -270,6 +274,67 @@ export async function join(
     seat.paid = true;
     g.paymentTx[id] = res.txHash;
     console.log(`[monopoly-backend] ${g.names[id]} BUY-IN ${g.fee} USDC tx ${res.txHash}`);
+    return { ok: true, txHash: res.txHash, ...publicGame(g, null) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Store a player's ERC-7715 spend grant (the MetaMask native-popup authorization).
+ * The granted `context` is later redeemed via the CANONICAL MetaMask
+ * DelegationManager to charge the buy-in (see joinViaGrant). One grant per player.
+ */
+export function storeGrant(
+  player: Address,
+  grant: Erc7715GrantContext,
+): { ok: boolean; error?: string } {
+  if (!grant.context || !grant.context.startsWith("0x")) {
+    return { ok: false, error: "missing or malformed granted permission context" };
+  }
+  store.grants.set(player.toLowerCase() as Address, {
+    context: grant.context,
+    from: grant.from,
+  });
+  console.log(
+    `[monopoly-backend] stored ERC-7715 grant for ${player} from ${grant.from} (${(grant.context.length - 2) / 2} bytes)`,
+  );
+  return { ok: true };
+}
+
+/**
+ * Buy-in via an ERC-7715 grant: cache the player's gameplay delegation (still
+ * needed for gasless moves), then redeem the player's granted permission context
+ * through the canonical MetaMask DelegationManager — a real USDC transfer from
+ * their MetaMask smart account to the Pot. This is the MetaMask/intuitive-popup
+ * counterpart of `join()` (which redeems our custom budget delegation for guests).
+ */
+export async function joinViaGrant(
+  player: Address,
+  signedGameplay: SignedDelegation,
+): Promise<{ ok: boolean; txHash?: Hex; alreadyPaid?: boolean; error?: string } & Record<string, unknown>> {
+  if (!store.game) return { ok: false, error: "no game" };
+  const g = store.game;
+  const id = player.toLowerCase();
+  const seat = g.delegs[id];
+  if (!seat) return { ok: false, error: "not a seat" };
+  seat.signedGameplay = reviveSigned(signedGameplay);
+  if (seat.paid) return { ok: true, txHash: g.paymentTx[id], alreadyPaid: true, ...publicGame(g, null) };
+
+  const grant = store.grants.get(id as Address);
+  if (!grant) return { ok: false, error: "no ERC-7715 grant on file — grant a spend permission first" };
+
+  const e = await engine();
+  try {
+    const res = await serialized(async () => {
+      const charged = await chargeViaGrant(grant, deployment.pot, g.fee);
+      // Mirror the deposit into the Pot's accounting (same as the guest buy-in path).
+      await withNonceRetry(() => creditDeposit(e, g.roomId, player, g.fee));
+      return charged;
+    });
+    seat.paid = true;
+    g.paymentTx[id] = res.txHash;
+    console.log(`[monopoly-backend] ${g.names[id]} BUY-IN ${g.fee} USDC via ERC-7715 grant tx ${res.txHash}`);
     return { ok: true, txHash: res.txHash, ...publicGame(g, null) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };

@@ -7,6 +7,7 @@ import { Dice } from "./components/Dice";
 import { MonopolyClient, type GameView } from "@/lib/monopoly-client";
 import { BOARD } from "@/lib/board";
 import { connectMetaMask, connectGuest, clearGuest, hasInjectedWallet, type Connection } from "@/lib/signer";
+import { connectMetaMaskGrant, type Erc7715Grant } from "@/lib/erc7715";
 
 // Empty → same-origin /api/* (the backend now lives in this Next app). Only set
 // NEXT_PUBLIC_MONOPOLY_BACKEND_URL to talk to a separate origin.
@@ -29,6 +30,8 @@ export default function Page() {
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
   const [paymentTx, setPaymentTx] = useState<string | null>(null);
+  // The ERC-7715 spend grant (MetaMask native popup) — present only on the MetaMask rail.
+  const [grant, setGrant] = useState<Erc7715Grant | null>(null);
   const [lastTx, setLastTx] = useState<{ text: string; tx: string } | null>(null);
   const [die, setDie] = useState<{ d1: number; d2: number }>({ d1: 0, d2: 0 });
   const [log, setLog] = useState<string[]>([]);
@@ -49,6 +52,21 @@ export default function Page() {
         setPhase("waiting");
         addLog(`connected ${c.kind === "metamask" ? "MetaMask Smart Account" : "guest wallet"} ${short(c.account.address)}`);
         if (typeof window !== "undefined") (window as unknown as Record<string, unknown>).__MONOPOLY_ADDR__ = c.account.address;
+        // MetaMask rail: grant the SPEND authorization via MetaMask's NATIVE ERC-7715
+        // permission popup (shows the USDC cap / period / justification) instead of an
+        // opaque raw-typed-data signature. Stored backend-side; redeemed at buy-in.
+        if (mode === "metamask") {
+          try {
+            addLog("requesting spend permission — approve the USDC cap in MetaMask…");
+            const { grant: g } = await connectMetaMaskGrant();
+            setGrant(g);
+            const stored = await new MonopolyClient(BACKEND_URL, c.account).grantSpend(g);
+            if (!stored.ok) throw new Error(stored.error ?? "failed to store grant");
+            addLog(`spend permission granted — up to ${g.capUsd} USDC/day (from ${short(g.from)})`);
+          } catch (ge) {
+            addLog(`spend-permission grant skipped: ${ge instanceof Error ? ge.message : String(ge)}`);
+          }
+        }
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
       }
@@ -68,6 +86,7 @@ export default function Page() {
     setPhase("connect");
     joinedRef.current = false;
     setPaymentTx(null);
+    setGrant(null);
     addLog("disconnected");
   }, [conn, addLog]);
 
@@ -139,15 +158,25 @@ export default function Page() {
     setBusy(true);
     setErr(null);
     try {
-      // Player brings their own USDC: make sure the delegation manager is approved to
-      // pull the buy-in (one `approve` — MetaMask Smart Account UserOp, or silent for guest).
-      const buyInWei = BigInt(Math.round(Number(view.fee) * 1e6));
-      if (conn) {
-        addLog("checking USDC allowance (approve if needed)…");
-        await conn.ensureApproval(buyInWei);
+      // MetaMask rail with an ERC-7715 grant: the spend is already authorized by
+      // MetaMask's native popup, redeemed via the canonical DelegationManager — no
+      // budget delegation, no `approve`, no second signature.
+      const useGrant = conn?.kind === "metamask" && grant !== null;
+      let res: { ok: boolean; txHash?: string; error?: string };
+      if (useGrant) {
+        addLog(`signing gameplay delegation, paying ${view.fee} USDC buy-in via your MetaMask spend permission (x402)…`);
+        res = await client.joinViaGrant(view.roomId);
+      } else {
+        // GUEST rail: bring your own USDC — approve the delegation manager, then sign +
+        // redeem our custom budget delegation (unchanged; keeps the e2e working).
+        const buyInWei = BigInt(Math.round(Number(view.fee) * 1e6));
+        if (conn) {
+          addLog("checking USDC allowance (approve if needed)…");
+          await conn.ensureApproval(buyInWei);
+        }
+        addLog(`signing gameplay + budget delegation, paying ${view.fee} USDC buy-in (x402)…`);
+        res = await client.join(view.roomId, view.pot);
       }
-      addLog(`signing gameplay + budget delegation, paying ${view.fee} USDC buy-in (x402)…`);
-      const res = await client.join(view.roomId, view.pot);
       if (!res.ok || !res.txHash) throw new Error(res.error ?? "buy-in failed");
       setPaymentTx(res.txHash);
       setLastTx({ text: `Buy-in ${view.fee} USDC settled`, tx: res.txHash });
@@ -159,7 +188,7 @@ export default function Page() {
     } finally {
       setBusy(false);
     }
-  }, [client, view, conn, addLog]);
+  }, [client, view, conn, grant, addLog]);
 
   const act = useCallback(
     async (action: string, spaceId?: number) => {
