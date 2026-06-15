@@ -45,7 +45,7 @@ examples/**/playwright-report/
 **/players.*.local.json
 **/.players.json
 # next.js mono-app local env (hardcoded testnet key / bundler key) — never commit
-landing/.env.local
+web/.env.local
 # stray non-pnpm lockfile
 **/bun.lock
 examples/**/playwright/.auth/

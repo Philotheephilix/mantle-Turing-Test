@@ -1,6 +1,6 @@
 packages:
   - "packages/*"
-  - "landing"
+  - "web"
   - "scripts"
 verifyDepsBeforeRun: false
 onlyBuiltDependencies:
