@@ -95,6 +95,11 @@ export class MonopolyClient {
     return this.post("/api/monopoly/start", { human: this.address });
   }
 
+  /** Faucet: mint test USDC (+ a little MNT for gas) to THIS wallet so it can play. */
+  fund(): Promise<{ ok: boolean; usdcHuman?: string; usdcTx?: string; mntTx?: string; error?: string }> {
+    return this.post("/api/monopoly/fund", { player: this.address });
+  }
+
   private budgetByPot = new Map<string, Awaited<ReturnType<typeof signBudgetDelegation>>>();
   private async budget(pot: Address) {
     let s = this.budgetByPot.get(pot.toLowerCase());

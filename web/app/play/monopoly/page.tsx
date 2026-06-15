@@ -36,6 +36,7 @@ export default function Page() {
   const [rolling, setRolling] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [funding, setFunding] = useState(false);
   const [paymentTx, setPaymentTx] = useState<string | null>(null);
   const [lastTx, setLastTx] = useState<{ text: string; tx: string } | null>(null);
   const [die, setDie] = useState<{ d1: number; d2: number }>({ d1: 0, d2: 0 });
@@ -99,6 +100,25 @@ export default function Page() {
   }, [wallet, addLog]);
 
   const copyAddr = wallet.copyAddress;
+
+  // Test faucet: mint USDC (+ a little MNT for gas) to the connected wallet.
+  const fundWallet = useCallback(async () => {
+    if (!client || funding) return;
+    setFunding(true);
+    setErr(null);
+    try {
+      addLog("funding your wallet with test USDC…");
+      const res = await client.fund();
+      if (!res.ok) throw new Error(res.error ?? "funding failed");
+      addLog(`funded ✓ wallet holds ${res.usdcHuman} USDC${res.mntTx ? " (+ gas top-up)" : ""}`);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      setErr(m);
+      addLog(`funding failed: ${m}`);
+    } finally {
+      setFunding(false);
+    }
+  }, [client, funding, addLog]);
 
   // Start a fresh game seated with THIS wallet (used when the connected address
   // isn't already seated in the auto-started demo game).
@@ -352,6 +372,16 @@ export default function Page() {
               >
                 <span>{short(account.address)}</span>
                 <span className="text-ink-faint">{copied ? "✓" : "⧉"}</span>
+              </button>
+              <button
+                type="button"
+                data-testid="fund-wallet"
+                onClick={() => void fundWallet()}
+                disabled={funding}
+                title="Mint test USDC (+ a little MNT for gas) to your wallet"
+                className="sticker sticker-lift sticker-press rounded-chunk bg-grass px-3 py-1.5 text-xs font-bold text-paper transition disabled:opacity-60"
+              >
+                {funding ? "Funding…" : "Fund wallet"}
               </button>
               <button
                 type="button"

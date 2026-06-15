@@ -81,7 +81,10 @@ export function readPlayers(): PlayerKey[] | null {
 export async function ensurePlayers(opts: EnsurePlayersOptions = {}): Promise<PlayerKey[]> {
   const botCount = opts.botCount ?? Number(process.env.BOT_COUNT ?? 2);
   const usdcEach = opts.usdcEach ?? process.env.USDC_EACH ?? "0.8";
-  const ethEach = opts.ethEach ?? process.env.ETH_EACH ?? "0.0009";
+  // MNT gas stipend per player — must cover the one-time approve(manager) on Mantle
+  // Sepolia. 0.0009 (tuned for a cheap chain) only buys ~15k gas and the approve
+  // reverts gas-estimation with "gas required exceeds allowance".
+  const ethEach = opts.ethEach ?? process.env.ETH_EACH ?? "0.05";
   const fresh = opts.fresh ?? process.env.FRESH === "1";
 
   const relayer = privateKeyToAccount(RELAYER_PRIVATE_KEY);

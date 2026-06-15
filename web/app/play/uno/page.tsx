@@ -31,6 +31,7 @@ export default function Home() {
   const copied = wallet.copied;
   const [phase, setPhase] = useState<Phase>("connect");
   const [starting, setStarting] = useState(false);
+  const [funding, setFunding] = useState(false);
   const [view, setView] = useState<GameView | null>(null);
   const [hand, setHand] = useState<UnoCard[]>([]);
   const [legal, setLegal] = useState<number[]>([]);
@@ -88,7 +89,13 @@ export default function Home() {
     [wallet, addLog],
   );
   const connect = useCallback(() => {
-    void connectWith(hasInjectedWallet() ? "metamask" : "guest");
+    // The MetaMask Smart Account rail needs an ERC-4337 bundler to approve USDC
+    // (its execute is onlyEntryPoint). Mantle Sepolia has no bundler configured by
+    // default, so unless NEXT_PUBLIC_MANTLE_SEPOLIA_BUNDLER_RPC is set we use the
+    // guest wallet — a plain EOA that approves directly (no bundler), which works
+    // on Mantle out of the box.
+    const hasBundler = !!process.env.NEXT_PUBLIC_MANTLE_SEPOLIA_BUNDLER_RPC;
+    void connectWith(hasInjectedWallet() && hasBundler ? "metamask" : "guest");
   }, [connectWith]);
 
   const disconnect = useCallback(() => {
@@ -104,6 +111,26 @@ export default function Home() {
   }, [wallet, addLog]);
 
   const copyAddr = wallet.copyAddress;
+
+  // Test faucet: mint USDC (+ a little MNT for gas) to the connected wallet so it
+  // can pay the entry fee. The relayer does it server-side and pays the gas.
+  const fundWallet = useCallback(async () => {
+    if (!client || funding) return;
+    setFunding(true);
+    setError(null);
+    try {
+      addLog("funding your wallet with test USDC…");
+      const res = await client.fund();
+      if (!res.ok) throw new Error(res.error ?? "funding failed");
+      addLog(`funded ✓ wallet holds ${res.usdcHuman} USDC${res.mntTx ? " (+ gas top-up)" : ""}`);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      setError(m);
+      addLog(`funding failed: ${m}`);
+    } finally {
+      setFunding(false);
+    }
+  }, [client, funding, addLog]);
 
   // Start a fresh game seated with THIS wallet (used when the connected address
   // isn't already seated in the auto-started demo game).
@@ -357,6 +384,16 @@ export default function Home() {
             >
               <span className="font-mono">{short(account.address)}</span>
               <span className="text-ink-faint">{copied ? "✓" : "⧉"}</span>
+            </button>
+            <button
+              type="button"
+              data-testid="fund-wallet"
+              onClick={() => void fundWallet()}
+              disabled={funding}
+              title="Mint test USDC (+ a little MNT for gas) to your wallet"
+              className="sticker sticker-lift sticker-press rounded-full bg-grass px-3 py-1.5 text-xs font-bold text-paper transition disabled:opacity-60"
+            >
+              {funding ? "Funding…" : "Fund wallet"}
             </button>
             <button
               type="button"

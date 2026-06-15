@@ -15,6 +15,11 @@ export async function POST(req: Request) {
   if (!body.human || !/^0x[0-9a-fA-F]{40}$/.test(body.human)) {
     return jsonResponse({ ok: false, error: "valid `human` address required" }, 400);
   }
-  const res = await startGameForHuman(body.human);
-  return jsonResponse(res, res.ok ? 200 : 500);
+  try {
+    const res = await startGameForHuman(body.human);
+    return jsonResponse(res, res.ok ? 200 : 500);
+  } catch (e) {
+    // Never return an empty 500 body — the client does res.json().
+    return jsonResponse({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500);
+  }
 }

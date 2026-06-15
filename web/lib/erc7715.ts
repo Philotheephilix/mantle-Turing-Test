@@ -63,17 +63,17 @@ function injected(): Eip1193 | null {
     : null;
 }
 
-/** Ensure the wallet is on Mantle Sepolia (0x14a34 = 5003), adding it if missing. */
+/** Ensure the wallet is on Mantle Sepolia (0x138b = 5003), adding it if missing. */
 async function ensureMantleSepolia(eth: Eip1193): Promise<void> {
   try {
-    await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x14a34" }] });
+    await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x138b" }] });
   } catch (e) {
     if ((e as { code?: number })?.code === 4902) {
       await eth.request({
         method: "wallet_addEthereumChain",
         params: [
           {
-            chainId: "0x14a34",
+            chainId: "0x138b",
             chainName: "Mantle Sepolia",
             nativeCurrency: { name: "Mantle", symbol: "MNT", decimals: 18 },
             rpcUrls: ["https://rpc.sepolia.mantle.xyz"],

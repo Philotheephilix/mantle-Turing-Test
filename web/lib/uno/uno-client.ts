@@ -54,6 +54,11 @@ export class UnoClient {
     return this.post("/api/uno/start", { human: this.account.address });
   }
 
+  /** Faucet: mint test USDC (+ a little MNT for gas) to THIS wallet so it can play. */
+  fund(): Promise<{ ok: boolean; usdcHuman?: string; usdcTx?: string; mntTx?: string; error?: string }> {
+    return this.post("/api/uno/fund", { player: this.account.address });
+  }
+
   /** Reveal the caller's OWN sealed hand + the legal-play indices. */
   hand(): Promise<{ ok: boolean; hand: UnoCard[]; legal: number[]; handCount: number; error?: string }> {
     return this.post("/api/uno/hand", { player: this.account.address });

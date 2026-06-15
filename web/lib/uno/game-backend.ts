@@ -44,9 +44,12 @@ import { ENTRY_FEE_USDC } from "./config";
 // `secrets` lives on the shared global store (below) so a hand sealed in the
 // instrumentation (auto-start) context can be revealed in a route-handler context.
 function ownerCondition(): AccessCondition[] {
-  // `@steamlink/secrets` (published) types `chain` as a Base-only literal; this app runs on
-  // Mantle Sepolia, so we pass the Mantle label through the external union via a cast.
-  const chain = "mantle-sepolia" as unknown as AccessCondition["chain"];
+  // NOTE: this `chain` is only the sealed-hand secrets-layer (Lit) condition label —
+  // it is NOT the game's EVM chain (that's Mantle Sepolia 5003, set by the deployment
+  // addresses + RPC). The published @steamlink/secrets REJECTS anything but
+  // "base"/"base-sepolia" at runtime ("Nexus is Base-only"), and with LocalSecrets
+  // (AES) the label is opaque, so we pass an accepted value here.
+  const chain: AccessCondition["chain"] = "base-sepolia";
   return [{ chain, method: "ownerOf", returns: { comparator: "=", value: ":userAddress" } }];
 }
 const enc = new TextEncoder();
