@@ -1,24 +1,24 @@
 {
-  "_note": "Live on Mantle Sepolia (chain 5003). Shared Nexus infra (world, delegationManager, turnManager, enforcers, pot, randomness) + a 6-decimals TestUSDC were deployed via packages/contracts DeployFull + RandomnessCoordinator. `unoGame` is zeroed because the UNO game-system Solidity source is not in this repo — deploy it and paste the address here to make the table playable.",
+  "_note": "Live on Mantle Sepolia (chain 5003). Full UNO stack \u2014 recovered UnoGameSystem + Pot + the shared Nexus infra \u2014 deployed via packages/contracts/script/DeployUno.s.sol and verified by a real on-chain gasless playCard (scripts/live/uno-e2e.ts).",
   "chainId": 5003,
-  "delegationManager": "0xD716d600a63bf08100b2544935AD6D020f0F1Eaf",
+  "delegationManager": "0x074E3EAB397aB173b352a41112e43cc553E1E160",
   "deployBlock": 0,
   "enforcers": {
-    "allowedRecipients": "0xde6DDCDcbefFdc026a4B08b7c4a71E8f0310a797",
-    "erc20TransferAmount": "0x390bb386D086eFbb7087ABA62A1A3d5B74632aaD",
-    "limitedCalls": "0x9274b9E16efda6BAd38DBcc831599B2Aac2f3a30",
-    "perActionCap": "0xb445fffADcbDf717DD2C9f11cC132BD2ddD25505",
-    "systemAllowlist": "0xB14841426DD66eC5a5e9e6ED295707f1fbBAA6aD",
-    "timestamp": "0x43871FFf417E98997576070956332ba53e42A301",
-    "turnBound": "0xB670846D361AaF2F6b43560591B932121A80a25B"
+    "allowedRecipients": "0x4d212B7a37e0b09E734928528f58551e5b75c8CD",
+    "erc20TransferAmount": "0x45b2bAeD94107fBa50EE4832BC8820470D535E53",
+    "limitedCalls": "0xbd3f401EB89651B294016531DdD563E6d263D018",
+    "perActionCap": "0xD3179921CFabd4f6060213f994CE8cCfDB804118",
+    "systemAllowlist": "0x981F77d8c201b38D3686856c4e2945FdF9C21120",
+    "timestamp": "0x9A549c2a3C1Bf8eAc6858491ff627FbFD0a8C173",
+    "turnBound": "0x069754f0711eAFe1366824Ffe4DFebc6D7883770"
   },
-  "pot": "0x253B95Bc8f2c799449639AfF0858b4c0E9f0416f",
-  "randomness": "0x56a9ABe6AA0F575ccB36f5DE3F1f9f9c3F8E94CC",
+  "pot": "0x6aC14897E3e943e24a24b076E0A8b21F9d8fe544",
+  "randomness": "0x17bD7bF5c4a40AEB66FD8d7969c191Ed32EAc39b",
   "relayer": "0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD",
   "roomId": 1,
-  "turnManager": "0xc8856f9eD594461f50BB673AD5B2933AEc9882e9",
-  "unoGame": "0x0000000000000000000000000000000000000000",
+  "turnManager": "0xDe30Eec3D9dCe76e3404B2f2c9F615BAb6857639",
+  "unoGame": "0x5858e4f3b02247049Be9E674FA4e39873AAC8Cbb",
   "unoGameSystemId": "0x556e6f47616d6500000000000000000000000000000000000000000000000000",
   "usdc": "0x189BdF9e9e4FfE4AC0e8eD0479b158843Bcd0cde",
-  "world": "0x561f9370EBf532b8f6002B07a501C820b7f16659"
+  "world": "0xF00BbAbF53cAfC5B7D8282f7e152121dC4140A17"
 }

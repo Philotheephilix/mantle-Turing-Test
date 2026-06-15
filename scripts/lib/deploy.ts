@@ -42,13 +42,15 @@ export function deployNexus(p: DeployParams): DeployedNexus {
   // estimate, so we skip simulation for speed. Mantle (5003 / 5000) inflates
   // contract-creation gas and its public RPC `eth_estimateGas` FAILS on large
   // deploys — so there we let Foundry simulate locally to derive gas, force
-  // legacy pricing, add headroom over the simulated gas, and send one tx at a
-  // time to avoid sequencer nonce races. Without this, a live Mantle deploy
-  // reverts with `-32000: contract creation code storage out of gas`.
+  // legacy pricing, and add headroom over the simulated gas. We deliberately do
+  // NOT pass `--slow`: with --slow Foundry RE-ESTIMATES each tx against the node
+  // mid-broadcast, which re-triggers Mantle's broken eth_estimateGas and silently
+  // halts the run partway (contracts deploy but the wiring txs never send).
+  // Broadcasting in one nonce-ordered batch from the simulated gas avoids that.
   const isLocalAnvil = p.chainId === 31337;
   const gasFlags = isLocalAnvil
     ? ["--skip-simulation"]
-    : ["--legacy", "--gas-estimate-multiplier", "200", "--slow"];
+    : ["--legacy", "--gas-estimate-multiplier", "200"];
 
   execFileSync(
     FORGE,

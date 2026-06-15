@@ -101,11 +101,13 @@ See [`web/AGENTS.md`](web/AGENTS.md) for the full map. In short: games live unde
 at `web/app/api/<game>/*` and UIs at `web/app/play/<game>/page.tsx`, all booted
 from `web/instrumentation.ts` and registered in `web/lib/games.ts`.
 
-> ⚠️ The per-game **Solidity system contracts** (`UnoGameSystem`, `MonopolyGameSystem`,
-> their pots) are **not in this repo** — only the shared Nexus stack +
-> reference `CounterGameSystem` is. In `web/lib/<game>/deployments/mantle-sepolia.json`
-> the `unoGame`/`monopolyGame` addresses are therefore `0x0` until those contracts
-> are deployed and pasted in.
+The per-game **Solidity system contracts** live in
+`packages/contracts/src/games/<game>/` (`UnoGameSystem` + `UnoTable` + `UnoPot`;
+`MonopolyGameSystem` + `MonopolyTables` + `MonopolyPot`), deployed by
+`packages/contracts/script/Deploy{Uno,Monopoly}.s.sol`. They are **live on Mantle
+Sepolia** and the real `unoGame`/`monopolyGame` addresses are wired into
+`web/lib/<game>/deployments/mantle-sepolia.json`, verified by real on-chain gasless
+moves (`scripts/live/{uno,monopoly}-e2e.ts`).
 
 ## End-to-end data flow (one signature → gasless moves + x402)
 
@@ -177,8 +179,13 @@ clone). Explorer [sepolia.mantlescan.xyz](https://sepolia.mantlescan.xyz), RPC
 | TestUSDC (budget token, 6dp) | `0x189BdF9e9e4FfE4AC0e8eD0479b158843Bcd0cde` |
 | relayer EOA | `0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD` |
 
-The seven enforcers are in the deployment JSONs. `unoGame`/`monopolyGame` are
-`0x0` — their Solidity source is not in this repo (see the web/ caveat above).
+The seven enforcers are in the deployment JSONs. The table above is the shared
+reference stack (`DeployFull`, CounterGame). **UNO and Monopoly each have their own
+full live stack** (separate World/manager/enforcers/pot + the game system):
+`unoGame` `0x5858e4f3b02247049Be9E674FA4e39873AAC8Cbb`,
+`monopolyGame` `0x6f11780aE493449C354e313C7D8Fc3dFF581B19B` — full address sets in
+`web/lib/<game>/deployments/mantle-sepolia.json`, each verified by a real gasless
+move on-chain.
 
 ## For reviewers
 

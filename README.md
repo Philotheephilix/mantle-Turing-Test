@@ -126,8 +126,12 @@ ERC-20 transfer-amount, allowed-recipients) are recorded in
 [0xA332…55bD](https://sepolia.mantlescan.xyz/address/0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD).
 
 > Mantle Sepolia has no canonical Circle USDC, so the stack deploys its own 6-decimals **TestUSDC**
-> as the budget/charge token. The per-game system contracts (`unoGame` / `monopolyGame`) are not in
-> this repo; deploy them and paste the address into the matching `deployments/mantle-sepolia.json`.
+> as the budget/charge token. The per-game system contracts live in
+> `packages/contracts/src/games/<game>/` (`UnoGameSystem`, `MonopolyGameSystem` + tables + pots) and
+> are deployed via `script/Deploy{Uno,Monopoly}.s.sol`. Both games are **live on Mantle Sepolia** —
+> `unoGame` [0x5858…8Cbb](https://sepolia.mantlescan.xyz/address/0x5858e4f3b02247049Be9E674FA4e39873AAC8Cbb),
+> `monopolyGame` [0x6f11…B19B](https://sepolia.mantlescan.xyz/address/0x6f11780aE493449C354e313C7D8Fc3dFF581B19B) —
+> verified by real on-chain gasless moves (`scripts/live/{uno,monopoly}-e2e.ts`).
 
 To (re)deploy the core stack to Mantle Sepolia:
 

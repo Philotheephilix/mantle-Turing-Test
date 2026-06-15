@@ -10,9 +10,14 @@
 - **What this covers:** the state of the codebase after the Base → Mantle Sepolia
   migration, the contract redeploy, and the CI work.
 - **Goal:** mutual understanding + a concrete punch-list — not criticism. Outcomes
-  sought: (1) the headline games are reproducible from a clean clone, (2) no
-  secrets in source, (3) CI stays a real merge gate.
+  sought: (1) no secrets in source, (2) the SDK the app runs is the code in this
+  repo, (3) CI stays a real merge gate.
 - **Audience:** maintainers and future contributors/reviewers.
+- **Resolved since first draft:** the "reference games not in the repo" gap is
+  closed — `UnoGameSystem` / `MonopolyGameSystem` (+ tables, pots, deploy scripts)
+  were recovered from git history into `packages/contracts/src/games/`, deployed to
+  Mantle Sepolia, and verified by real on-chain gasless moves
+  (`scripts/live/{uno,monopoly}-e2e.ts`).
 
 ## Delivery — what's working (keep doing this)
 
@@ -55,21 +60,7 @@
 - **Ask:** move the key to env/secrets, delete the literal, and rotate the exposed
   key.
 
-**5 · The headline games aren't reproducible from source** · _priority: high_
-- **S:** Redeploying or running UNO / Monopoly from a clean clone.
-- **B:** `web/lib/<game>/deployments/mantle-sepolia.json` references `unoGame` /
-  `monopolyGame`, but the **game-system Solidity contracts are not in the repo** —
-  only the shared stack + a reference `CounterGameSystem` is. Those addresses are
-  therefore `0x0`.
-- **I:** The "fully on-chain reference games" story can't be rebuilt from source;
-  a contributor following the "add a game" guide has no example system contract to
-  model. (This is documented in the deployment JSON `_note` and `AGENTS.md`, but
-  the gap remains.)
-- **Ask:** add the game-system contracts + their deploy scripts under
-  `packages/contracts`, or state explicitly that they live in a separate repo and
-  link it.
-
-**6 · The web app uses published packages, not the workspace** · _priority: medium_
+**5 · The web app uses published packages, not the workspace** · _priority: medium_
 - **S:** `web/package.json`.
 - **B:** The app depends on the **npm-published `@steamlink/*`** packages
   (Base-typed) rather than the local `@nexus/*` workspace.
@@ -79,7 +70,7 @@
 - **Ask:** alias `@steamlink/*` → the workspace via pnpm `overrides` for local dev,
   or publish updated packages, so the app exercises the code in this repo.
 
-**7 · CI was never actually green** · _priority: medium (now fixed)_
+**6 · CI was never actually green** · _priority: medium (now fixed)_
 - **S:** The GitHub Actions `CI` workflow.
 - **B:** Every historical run failed at the **first** step — a duplicate pnpm
   version passed to `pnpm/action-setup` — so build/test/lint/live-anvil never ran.
@@ -91,7 +82,7 @@
 - **Ask:** treat green CI as a real merge gate (the fixes are now in `main`); add a
   branch-protection rule requiring it.
 
-**8 · Pre-existing lint debt parked as warnings** · _priority: low_
+**7 · Pre-existing lint debt parked as warnings** · _priority: low_
 - **S:** `biome.json`.
 - **B:** 50 pre-existing web-UI findings (`noSvgWithoutTitle`, `useButtonType`,
   `noArrayIndexKey`, `useExhaustiveDependencies`) were **downgraded to warnings** to
@@ -105,17 +96,16 @@
 | # | Action | Priority | Owner | Check-in |
 |---|---|---|---|---|
 | 4 | Remove + rotate the committed relayer key; require env var | High | — | next PR |
-| 5 | Add game-system contracts to the repo (or link the external source) | High | — | next milestone |
-| 6 | Point `web/` at the workspace SDK (pnpm overrides) or republish | Medium | — | next sprint |
-| 7 | Enable branch protection requiring green CI | Medium | — | this week |
-| 8 | Burn down the 50 lint warnings; re-promote to errors | Low | — | backlog |
+| 5 | Point `web/` at the workspace SDK (pnpm overrides) or republish | Medium | — | next sprint |
+| 6 | Enable branch protection requiring green CI | Medium | — | this week |
+| 7 | Burn down the 50 lint warnings; re-promote to errors | Low | — | backlog |
 
-**Suggested check-in:** revisit items 4–5 at the next review; they're the two that
-block a clean-clone reviewer from reproducing the project end-to-end.
+**Suggested check-in:** revisit item 4 (the committed key) at the next review —
+it's the single highest-leverage safety fix remaining.
 
 ---
 
 _Receiving this well (per the framework): the strengths are real and most gaps are
-artifacts of a fast hackathon migration, not design flaws. Items 4 and 5 are the
-highest-leverage fixes — both are small changes with outsized impact on safety and
-reproducibility._
+artifacts of a fast hackathon migration, not design flaws. With the games recovered
+and deployed, item 4 (the committed key) is the single highest-leverage fix left —
+a small change with outsized impact on safety._

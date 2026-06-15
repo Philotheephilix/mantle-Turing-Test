@@ -10,10 +10,13 @@
    `@steamlink/*` npm packages** (core/react/server/relayer/secrets/types) — NOT
    the local `@nexus/*` workspace. Editing `packages/*` does not change this app's
    SDK layer; only `web/`'s own code changes it.
-2. **Game-system contracts are not in this repo.** The shared Nexus stack is
-   deployed (see root AGENTS "Deployments"), but the per-game Solidity systems
-   (`unoGame`, `monopolyGame`) are external; their addresses are `0x0` in
-   `web/lib/<game>/deployments/mantle-sepolia.json` until deployed and pasted in.
+2. **Game-system contracts live in the repo + are deployed.** Each game's Solidity
+   system is in `packages/contracts/src/games/<game>/` (`UnoGameSystem` /
+   `MonopolyGameSystem` + their table libs + pots), deployed via
+   `packages/contracts/script/Deploy{Uno,Monopoly}.s.sol`. The live Mantle Sepolia
+   `unoGame` / `monopolyGame` addresses are in
+   `web/lib/<game>/deployments/mantle-sepolia.json`, each verified by a real
+   on-chain gasless move (`scripts/live/{uno,monopoly}-e2e.ts`).
 
 ## Top-level layout
 
