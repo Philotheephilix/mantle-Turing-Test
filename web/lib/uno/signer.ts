@@ -36,7 +36,12 @@ import { type LocalAccount, generatePrivateKey, privateKeyToAccount, toAccount }
 import { createPublicClient, createWalletClient, custom, encodeFunctionData, http, maxUint256 } from "viem";
 import { createBundlerClient } from "viem/account-abstraction";
 import { mantleSepoliaTestnet } from "viem/chains";
-import { Implementation, toMetaMaskSmartAccount } from "@metamask/delegation-toolkit";
+import { type DeleGatorEnvironment, Implementation, toMetaMaskSmartAccount } from "@metamask/delegation-toolkit";
+import { getSmartAccountsEnvironment } from "@metamask/smart-accounts-kit";
+
+// delegation-toolkit@0.13 lacks Mantle Sepolia (5003); resolve the framework env
+// from smart-accounts-kit (identical shape) and pass it explicitly.
+const MANTLE_SA_ENV = getSmartAccountsEnvironment(mantleSepoliaTestnet.id) as unknown as DeleGatorEnvironment;
 import { addresses, deployment, RELAYER_ADDRESS } from "./deployment";
 
 const GUEST_KEY_STORAGE = "uno.guest.privateKey";
@@ -157,6 +162,7 @@ export async function connectMetaMask(): Promise<Connection> {
     // peer), so TS sees "two PublicClients with this name". The runtime is
     // identical — cast across the type boundary.
     client: publicClient as unknown as Parameters<typeof toMetaMaskSmartAccount>[0]["client"],
+    environment: MANTLE_SA_ENV,
     implementation: Implementation.Hybrid,
     deployParams: [ownerEoa, [], [], []],
     deploySalt: DEPLOY_SALT,

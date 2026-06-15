@@ -36,8 +36,17 @@ import { type LocalAccount, generatePrivateKey, privateKeyToAccount, toAccount }
 import { createPublicClient, createWalletClient, custom, encodeFunctionData, http, maxUint256 } from "viem";
 import { createBundlerClient } from "viem/account-abstraction";
 import { mantleSepoliaTestnet } from "viem/chains";
-import { Implementation, toMetaMaskSmartAccount } from "@metamask/delegation-toolkit";
+import { type DeleGatorEnvironment, Implementation, toMetaMaskSmartAccount } from "@metamask/delegation-toolkit";
+import { getSmartAccountsEnvironment } from "@metamask/smart-accounts-kit";
 import { USDC_ADDRESS, RELAYER_ADDRESS } from "./constants";
+
+// delegation-toolkit@0.13 doesn't have Mantle Sepolia (5003) in its bundled env
+// registry, so toMetaMaskSmartAccount throws "No contracts found ... chain 5003".
+// The newer smart-accounts-kit DOES know 5003 (same canonical framework addresses,
+// identical DeleGatorEnvironment shape) — resolve it once and pass it explicitly.
+const MANTLE_SA_ENV = getSmartAccountsEnvironment(
+  mantleSepoliaTestnet.id,
+) as unknown as DeleGatorEnvironment;
 
 const GUEST_KEY_STORAGE = "steamlink.guest.pk";
 // An ERC-4337 bundler URL for Mantle Sepolia. The MetaMask smart account performs
@@ -157,6 +166,7 @@ export async function connectMetaMask(): Promise<Connection> {
     // peer), so TS sees "two PublicClients with this name". The runtime is
     // identical — cast across the type boundary.
     client: publicClient as unknown as Parameters<typeof toMetaMaskSmartAccount>[0]["client"],
+    environment: MANTLE_SA_ENV, // Mantle Sepolia framework addresses (5003 not in the toolkit's registry)
     implementation: Implementation.Hybrid,
     deployParams: [ownerEoa, [], [], []],
     deploySalt: DEPLOY_SALT,
