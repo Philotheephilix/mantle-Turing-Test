@@ -24,6 +24,9 @@ contract TimestampEnforcer is CaveatEnforcerBase {
         address,
         address
     ) external view override {
+        // `terms` is the delegator-signed expiry replayed by the DelegationManager;
+        // it is tamper-evident under the delegation signature, so the relayer cannot
+        // push the expiry out to keep a delegation alive past its intended window.
         uint256 expiresAtMs = abi.decode(terms, (uint256));
         // The TS engine passes expiry in epoch MILLISECONDS (§2.1); the EVM clock
         // (`block.timestamp`) is in SECONDS. We convert ms->s by integer division,

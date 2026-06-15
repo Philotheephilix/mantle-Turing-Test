@@ -24,8 +24,17 @@ contract TurnBoundEnforcer is CaveatEnforcerBase {
         address delegator,
         address
     ) external view override {
+        // `terms` is the delegator-signed caveat payload replayed by the
+        // DelegationManager; (turnManager, roomId) is the delegator's intent and is
+        // tamper-evident under the delegation signature — the relayer cannot point us
+        // at a different TurnManager or room to dodge the turn check.
         (address turnManager, uint256 roomId) = abi.decode(terms, (address, uint256));
+        // Read the LIVE current player at redemption time (not a snapshot baked into
+        // terms): turn order advances on-chain, so the gate must reflect present state.
         address current = ITurnManager(turnManager).getCurrent(roomId);
+        // `delegator` is supplied by the DelegationManager (the authenticated grantor
+        // of this delegation), so comparing it to the live current player enforces
+        // "redeem only on your own turn".
         if (current != delegator) revert NotYourTurn();
     }
 }

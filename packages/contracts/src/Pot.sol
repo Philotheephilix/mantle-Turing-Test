@@ -57,6 +57,11 @@ contract Pot is ReentrancyGuard {
         rakeBps = _rakeBps;
     }
 
+    // The sole authority gate for the contract. `settleAuthority` is fixed at
+    // construction (immutable, no owner key, no upgrade path), so the right to open
+    // and settle pots can never be reassigned. Direct equality against msg.sender —
+    // no ERC-2771 unwrapping here — means only the registered authority's own call
+    // frame passes; nothing it relays on behalf of others can settle.
     modifier onlySettleAuthority() {
         if (msg.sender != settleAuthority) revert Pot_NotSettleAuthority();
         _;
@@ -74,6 +79,9 @@ contract Pot is ReentrancyGuard {
         if (!p.open) revert Pot_NotOpen(roomId);
         if (p.settled) revert Pot_AlreadySettled(roomId);
 
+        // Pull tokens first; only credit the pot with what actually arrived from a
+        // successful transfer. `deposited[..][msg.sender]` is the participation proof
+        // settle() later requires, so the winner-check is grounded in real deposits.
         token.safeTransferFrom(msg.sender, address(this), amount);
         p.balance += amount;
         deposited[roomId][msg.sender] += amount;
@@ -85,12 +93,23 @@ contract Pot is ReentrancyGuard {
         PotState storage p = pots[roomId];
         if (!p.open) revert Pot_NotOpen(roomId);
         if (p.settled) revert Pot_AlreadySettled(roomId);
+        // The winner must have actually deposited into THIS room. This is the only
+        // on-chain validation of the payee — it stops the settle authority (or a bug
+        // in the calling system) from draining a room's pot to an outside address.
         if (deposited[roomId][winner] == 0) revert Pot_WinnerNotParticipant(roomId, winner);
 
         uint256 total = p.balance;
+        // rake = total * bps / 10_000. Cannot underflow `payout`: rakeBps <= 10_000
+        // (enforced in the constructor), so rake <= total and `total - rake` >= 0.
+        // Integer division floors the rake, so any rounding dust stays with the winner.
         uint256 rake = (total * rakeBps) / 10_000;
         uint256 payout = total - rake;
 
+        // Effects BEFORE interactions (checks-effects-interactions): mark settled and
+        // zero the balance up front so that even though `settle` is admin-gated and
+        // already nonReentrant-guarded, a malicious/hookable token re-entering here
+        // finds the pot closed (settled == true) and empty (balance == 0) — nothing
+        // left to double-pay.
         p.settled = true;
         p.open = false;
         p.balance = 0;

@@ -29,13 +29,24 @@ contract SystemAllowlistEnforcer is CaveatEnforcerBase {
         address,
         address
     ) external pure override {
+        // `terms` is the delegator-signed caveat payload replayed verbatim by the
+        // DelegationManager; the (world, allowed) set reflects the delegator's intent
+        // and is tamper-evident under the delegation signature, not relayer-supplied.
         (address world, bytes32[] memory allowed) = abi.decode(terms, (address, bytes32[]));
+        // We only need the call target and inner callData here; native value is left
+        // to the spend enforcers — gameplay calls carry no token amount to cap.
         (address target,, bytes calldata callData) = _decodeExecution(executionCalldata);
 
         if (target != world) revert SystemNotAllowed();
+        // Need at least the 4-byte selector + one 32-byte arg (the systemId) before
+        // we can read it; guard the slice against truncated calldata.
         if (callData.length < 36) revert SystemNotAllowed();
         if (bytes4(callData[0:4]) != WORLD_CALL_SELECTOR) revert SystemNotAllowed();
 
+        // World.call(bytes32 systemId, bytes callData): systemId is the 1st ABI word —
+        // skip the 4-byte selector, so bytes [4,36). The 2nd arg (`callData`) is a
+        // dynamic `bytes` and is left unconstrained here; the allowlist gates WHICH
+        // system runs, not its arguments.
         bytes32 systemId = bytes32(callData[4:36]);
         if (!_contains(allowed, systemId)) revert SystemNotAllowed();
     }

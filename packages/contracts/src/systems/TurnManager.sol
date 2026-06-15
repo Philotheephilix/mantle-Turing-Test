@@ -46,6 +46,11 @@ contract TurnManager is System {
     mapping(address caller => bool) public authorized;
 
     mapping(uint256 roomId => Turn) internal _turn;
+    // `_seats` is the fixed turn ORDER per room (index 0..n-1). `_seatIndexPlus1`
+    // maps a player back to their seat index, stored as index+1 so that 0 doubles as
+    // "not seated" (the zero-value of an unset mapping entry). Rotation reads the
+    // current player's seat via this reverse index, so the two must stay in sync —
+    // both are (re)written together only in startTurns().
     mapping(uint256 roomId => address[]) internal _seats;
     mapping(uint256 roomId => mapping(address player => uint256)) internal _seatIndexPlus1;
 
@@ -62,11 +67,18 @@ contract TurnManager is System {
     event TurnManager_Authorized(address indexed caller, bool ok);
     event TurnManager_DirectionSet(uint256 indexed roomId, int8 direction);
 
+    // Admin = configuration authority: it manages the `authorized` set and the
+    // trusted router. It does NOT itself rotate turns except via being in the
+    // `authorized` set (seeded in the constructor).
     modifier onlyAdmin() {
         if (msg.sender != admin) revert TurnManager_NotAdmin();
         _;
     }
 
+    // Gate for all turn-MUTATING calls (startTurns/advance/setDirection). Keyed on
+    // the direct msg.sender — the World and writer-granted game systems are added by
+    // the admin via authorize(). A relayed end-user can never advance the turn; only
+    // a contract the admin explicitly trusts to enforce game rules can.
     modifier onlyAuthorized() {
         if (!authorized[msg.sender]) revert TurnManager_NotAuthorized();
         _;
@@ -120,12 +132,17 @@ contract TurnManager is System {
         if (order.length == 0) revert TurnManager_EmptyOrder();
         if (_turn[roomId].active) revert TurnManager_AlreadyActive(roomId);
 
+        // Rebuild the seat order from scratch each start. `delete` drops the old
+        // array; the loop re-seats every player and writes the index+1 reverse map in
+        // lockstep so a restart of the same room can't leave stale seat indexes around.
         delete _seats[roomId];
         for (uint256 i = 0; i < order.length; i++) {
             _seats[roomId].push(order[i]);
             _seatIndexPlus1[roomId][order[i]] = i + 1;
         }
 
+        // First deadline is set relative to the current block; every later rotation
+        // re-derives it the same way in _rotate(), keeping the timeout clock on-chain.
         uint64 deadline = uint64(block.number) + turnBlocks;
         _turn[roomId] = Turn({
             active: true,
@@ -172,15 +189,22 @@ contract TurnManager is System {
     function _rotate(uint256 roomId, Turn storage t) internal {
         address[] storage seats = _seats[roomId];
         uint256 n = seats.length;
+        // Recover the current seat's index (stored +1, so subtract 1). Safe because
+        // t.current is always a seated player set from this same `seats` array.
         uint256 idx = _seatIndexPlus1[roomId][t.current] - 1;
         uint256 next;
         if (t.direction >= 0) {
+            // Forward step, wrapping n-1 -> 0 via modulo so the order is circular.
             next = (idx + 1) % n;
         } else {
+            // Reverse step. Add n before subtracting 1 so the math never underflows
+            // at idx == 0 (idx + n - 1) % n lands on the last seat, wrapping cleanly.
             next = (idx + n - 1) % n;
         }
         t.current = seats[next];
         t.turnIndex += 1;
+        // Reset the deadline for the new turn relative to the current block — this is
+        // what makes the permissionless timeout() path self-clocking on-chain.
         t.deadlineBlock = uint64(block.number) + t.turnBlocks;
     }
 }

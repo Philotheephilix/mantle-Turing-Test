@@ -30,8 +30,16 @@ contract AllowedRecipientsEnforcer is CaveatEnforcerBase {
         address,
         address
     ) external pure override {
+        // `terms` is the delegator-signed caveat payload replayed by the
+        // DelegationManager; it is tamper-evident under the delegation signature, so
+        // the (token, allowedRecipients) set is the delegator's intent and cannot be
+        // injected by the relayer at redemption time.
         (address token, address[] memory allowedRecipients) = abi.decode(terms, (address, address[]));
+        // Split the ERC-7579 single-execution layout (see CaveatEnforcerBase).
         (address target, uint256 value, bytes calldata callData) = _decodeExecution(executionCalldata);
+        // Reject any native-value leg: an allowlist on the ERC-20 `to` is meaningless
+        // if ETH can be sent elsewhere in the same execution. See
+        // CaveatEnforcerBase._requireNoValue.
         _requireNoValue(value);
 
         if (target != token) revert RecipientNotAllowed();
@@ -40,17 +48,24 @@ contract AllowedRecipientsEnforcer is CaveatEnforcerBase {
         bytes4 sel = bytes4(callData[0:4]);
         address to;
         if (sel == TRANSFER_SELECTOR) {
-            // transfer(address to, uint256 amount): recipient is 1st arg
+            // transfer(address to, uint256 amount): the recipient is the 1st ABI word
+            // — skip only the 4-byte selector, so bytes [4,36). The low 20 bytes of
+            // that 32-byte word are the address. The length guard (4 + 64) ensures the
+            // full arg tuple is present before slicing.
             if (callData.length < 4 + 64) revert RecipientNotAllowed();
             to = address(uint160(uint256(bytes32(callData[4:36]))));
         } else if (sel == TRANSFER_FROM_SELECTOR) {
-            // transferFrom(address from, address to, uint256 amount): recipient is 2nd arg
+            // transferFrom(address from, address to, uint256 amount): the recipient is
+            // the 2nd ABI word — skip the selector + `from`, so bytes [36,68). Guard
+            // (4 + 96) covers all three words.
             if (callData.length < 4 + 96) revert RecipientNotAllowed();
             to = address(uint160(uint256(bytes32(callData[36:68]))));
         } else {
             revert RecipientNotAllowed();
         }
 
+        // Allow only if `to` is a member of the signed allowlist; fall through to
+        // revert otherwise. Linear scan is fine — allowlists are small (pots/sellers).
         for (uint256 i = 0; i < allowedRecipients.length; i++) {
             if (allowedRecipients[i] == to) return;
         }
