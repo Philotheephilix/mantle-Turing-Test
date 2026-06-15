@@ -3,14 +3,14 @@ packages:
   - "web"
   - "scripts"
 verifyDepsBeforeRun: false
+# Native/postinstall deps allowed to run build scripts. CI installs additionally
+# pass `--config.strictDepBuilds=false` (see vercel.json) so pnpm 11 never hard-fails
+# on a still-ignored build script.
 onlyBuiltDependencies:
   - "@biomejs/biome"
+  - "@reown/appkit"
+  - bufferutil
   - esbuild
-allowBuilds:
-  '@biomejs/biome': set this to true or false
-  '@reown/appkit': set this to true or false
-  bufferutil: set this to true or false
-  esbuild: set this to true or false
-  protobufjs: set this to true or false
-  sharp: set this to true or false
-  utf-8-validate: set this to true or false
+  - protobufjs
+  - sharp
+  - utf-8-validate
