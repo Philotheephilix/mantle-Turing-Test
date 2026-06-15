@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DeploymentAddresses } from "@nexus/core";
@@ -34,6 +34,10 @@ export interface DeployParams {
  * REAL on-chain deployments against whatever RPC is given (local anvil or Mantle).
  */
 export function deployNexus(p: DeployParams): DeployedNexus {
+  // DeployFull writes ./deployments/<chainid>.json via vm.writeJson, which does
+  // NOT create the directory — ensure it exists (fresh CI checkouts have none).
+  mkdirSync(resolve(CONTRACTS, "deployments"), { recursive: true });
+
   execFileSync(
     FORGE,
     [
