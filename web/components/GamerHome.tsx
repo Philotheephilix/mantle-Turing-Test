@@ -1,26 +1,45 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { GAMES } from "@/lib/games";
+import { motion } from "framer-motion";
+import { DiceRoller } from "./DiceRoller";
 import { GameCard } from "./GameCard";
+import { GaslessFlow } from "./GaslessFlow";
 import { IsoScene } from "./IsoScene";
 import { IsoTilt } from "./IsoTilt";
+import { MagneticButton } from "./MagneticButton";
+import { Marquee } from "./Marquee";
 import { Mascot } from "./Mascot";
 import { Reveal } from "./Reveal";
-import { Marquee } from "./Marquee";
 import { SquiggleUnderline } from "./SquiggleUnderline";
-import { MagneticButton } from "./MagneticButton";
-import { GaslessFlow } from "./GaslessFlow";
-import { DiceRoller } from "./DiceRoller";
 
 function Kicker({ children }: { children: React.ReactNode }) {
-  return <span className="font-display text-sm font-extrabold uppercase tracking-wider text-coral">{children}</span>;
+  return (
+    <span className="font-display text-sm font-extrabold uppercase tracking-wider text-coral">
+      {children}
+    </span>
+  );
 }
 
 const STEPS = [
-  { n: "01", t: "Grab a seat", b: "Join a room and pick your wallet. Free to look around, no setup marathon.", a: "bg-coral" },
-  { n: "02", t: "Sign once", b: "One signature sets your spend caps and turn rules. Then your wallet goes quiet.", a: "bg-amber" },
-  { n: "03", t: "Play & win", b: "Every move is gasless. The pot is real USDC, paid out onchain to the winner.", a: "bg-grass" },
+  {
+    n: "01",
+    t: "Grab a seat",
+    b: "Join a room and pick your wallet. Free to look around, no setup marathon.",
+    a: "bg-coral",
+  },
+  {
+    n: "02",
+    t: "Sign once",
+    b: "One signature sets your spend caps and turn rules. Then your wallet goes quiet.",
+    a: "bg-amber",
+  },
+  {
+    n: "03",
+    t: "Play & win",
+    b: "Every move is gasless. The pot is real USDC, paid out onchain to the winner.",
+    a: "bg-grass",
+  },
 ];
 
 export function GamerHome() {
@@ -37,7 +56,7 @@ export function GamerHome() {
         <div>
           <span className="inline-flex items-center gap-2 rounded-full border-[2px] border-ink bg-paper px-3 py-1 text-xs font-bold uppercase tracking-wide shadow-sticker-sm">
             <span className="h-2 w-2 rounded-full bg-grass" />
-            Live on Base
+            Live on Mantle
           </span>
           <h1 className="mt-6 font-display text-[clamp(2.8rem,8vw,5.2rem)] font-extrabold leading-[0.95]">
             Play onchain
@@ -49,15 +68,20 @@ export function GamerHome() {
             </span>
           </h1>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-ink-soft">
-            Sign once when you sit down. After that every move and every USDC bet runs
-            with no wallet popup, capped onchain so you stay in control. Real games, real
-            stakes.
+            Sign once when you sit down. After that every move and every USDC bet runs with no
+            wallet popup, capped onchain so you stay in control. Real games, real stakes.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <MagneticButton href="#library" className="sticker rounded-full bg-coral px-7 py-3.5 text-base font-bold text-paper">
+            <MagneticButton
+              href="#library"
+              className="sticker rounded-full bg-coral px-7 py-3.5 text-base font-bold text-paper"
+            >
               Play the games
             </MagneticButton>
-            <a href="#how" className="rounded-full px-5 py-3.5 text-base font-bold text-ink underline decoration-ink/30 decoration-2 underline-offset-4 hover:decoration-ink">
+            <a
+              href="#how"
+              className="rounded-full px-5 py-3.5 text-base font-bold text-ink underline decoration-ink/30 decoration-2 underline-offset-4 hover:decoration-ink"
+            >
               How it works
             </a>
           </div>
@@ -70,7 +94,7 @@ export function GamerHome() {
           <motion.div
             className="absolute -bottom-2 left-2 sm:left-6"
             animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 4, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
           >
             <Mascot accent="coral" width={92} />
           </motion.div>
@@ -78,7 +102,16 @@ export function GamerHome() {
       </section>
 
       <div className="-mx-5 sm:-mx-8">
-        <Marquee items={["Gasless moves", "Real USDC stakes", "Sealed hands", "Spend caps onchain", "No wallet popups", "Settled on Base"]} />
+        <Marquee
+          items={[
+            "Gasless moves",
+            "Real USDC stakes",
+            "Sealed hands",
+            "Spend caps onchain",
+            "No wallet popups",
+            "Settled on Mantle",
+          ]}
+        />
       </div>
 
       {/* How to play */}
@@ -93,7 +126,9 @@ export function GamerHome() {
           {STEPS.map((s, i) => (
             <Reveal key={s.n} delay={i * 0.08}>
               <div className="sticker h-full rounded-chunk bg-paper p-6">
-                <span className={`grid h-12 w-12 place-items-center rounded-2xl border-[2.5px] border-ink font-display text-lg font-extrabold text-paper shadow-sticker-sm ${s.a}`}>
+                <span
+                  className={`grid h-12 w-12 place-items-center rounded-2xl border-[2.5px] border-ink font-display text-lg font-extrabold text-paper shadow-sticker-sm ${s.a}`}
+                >
                   {s.n}
                 </span>
                 <h3 className="mt-5 font-display text-xl font-bold">{s.t}</h3>
@@ -116,8 +151,8 @@ export function GamerHome() {
                 </h2>
               </div>
               <p className="max-w-xs text-sm text-ink-soft">
-                One signature, then a relayer pushes every move and payout onchain and
-                eats the gas. You just play.
+                One signature, then a relayer pushes every move and payout onchain and eats the gas.
+                You just play.
               </p>
             </div>
             <GaslessFlow accent="coral" endLabel="You win" endKind="coin" className="mt-4 w-full" />
@@ -150,14 +185,16 @@ export function GamerHome() {
         <Reveal>
           <div className="sticker relative overflow-hidden rounded-chunk bg-coral p-8 text-paper sm:p-12">
             <div className="relative z-10 max-w-xl">
-              <span className="font-display text-sm font-extrabold uppercase tracking-wider text-paper/80">The pot is real</span>
+              <span className="font-display text-sm font-extrabold uppercase tracking-wider text-paper/80">
+                The pot is real
+              </span>
               <h2 className="mt-3 font-display text-[clamp(1.8rem,4vw,2.6rem)] font-extrabold leading-tight">
                 You&apos;re not playing for points.
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-paper/90">
-                Entry fees and bets are real USDC, bounded onchain by your own spend caps
-                and held in escrow by the contract. When you win, the contract pays you,
-                not a server. No house, no custody, no fake win.
+                Entry fees and bets are real USDC, bounded onchain by your own spend caps and held
+                in escrow by the contract. When you win, the contract pays you, not a server. No
+                house, no custody, no fake win.
               </p>
             </div>
             <div className="relative z-10 mt-7 flex items-center gap-4 sm:absolute sm:right-10 sm:top-1/2 sm:mt-0 sm:-translate-y-1/2">

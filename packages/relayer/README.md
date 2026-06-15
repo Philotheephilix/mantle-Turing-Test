@@ -5,7 +5,7 @@
 ## What it is
 
 The relayer adapter behind a single TypeScript Port. Every redemption — a gameplay
-move or an x402 payment — reaches Base through one `RelayerAdapter` interface, so
+move or an x402 payment — reaches Mantle through one `RelayerAdapter` interface, so
 players pay **zero gas**.
 
 Two implementations ship in the box:
@@ -118,4 +118,4 @@ const relayer = new DirectRelayer({ wallet, publicClient, usdc });
 
 ## Part of Nexus
 
-Built for [`@steamlink/core`](../core). **Base only** — `chain` is strictly `"base"`.
+Built for [`@steamlink/core`](../core). **Mantle only** — `chain` is strictly `"mantle"`.

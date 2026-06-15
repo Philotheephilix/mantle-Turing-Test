@@ -90,7 +90,7 @@ export function useCharge(): UseChargeResult {
           config.addresses,
         );
         const signed = await signDelegation(signer, {
-          chainId: config.chain === "base" ? 8453 : 84532,
+          chainId: config.chain === "mantle" ? 5000 : 5003,
           delegationManager: config.addresses.delegationManager,
           delegate: signer.address,
           caveats,

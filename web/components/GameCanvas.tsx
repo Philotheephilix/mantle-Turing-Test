@@ -64,7 +64,10 @@ export function GameCanvas({
       {/* screen */}
       <div
         className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border-2 border-ink/60"
-        style={{ background: "radial-gradient(120% 120% at 50% 0%, oklch(0.22 0.03 285) 0%, oklch(0.13 0.02 285) 70%)" }}
+        style={{
+          background:
+            "radial-gradient(120% 120% at 50% 0%, oklch(0.22 0.03 285) 0%, oklch(0.13 0.02 285) 70%)",
+        }}
       >
         {/* grid + scanlines */}
         <div
@@ -77,7 +80,10 @@ export function GameCanvas({
         />
         <div
           className="absolute inset-0 opacity-50"
-          style={{ backgroundImage: "repeating-linear-gradient(0deg, transparent 0 2px, oklch(0 0 0 / 0.18) 2px 3px)" }}
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(0deg, transparent 0 2px, oklch(0 0 0 / 0.18) 2px 3px)",
+          }}
         />
         {/* moving scan bar */}
         <div className="anim-scan absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-transparent via-white/8 to-transparent" />
@@ -87,7 +93,12 @@ export function GameCanvas({
           <span
             key={i}
             className="absolute font-display text-2xl font-bold opacity-30"
-            style={{ left: f.left, top: f.top, color: f.color, animation: `drift ${f.d}s ease-in-out ${i * 0.5}s infinite` }}
+            style={{
+              left: f.left,
+              top: f.top,
+              color: f.color,
+              animation: `drift ${f.d}s ease-in-out ${i * 0.5}s infinite`,
+            }}
           >
             {f.glyph}
           </span>
@@ -95,7 +106,9 @@ export function GameCanvas({
 
         {/* center content */}
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center">
-          <span className={`mb-5 grid h-16 w-16 place-items-center rounded-2xl border-[2.5px] border-ink font-display text-3xl font-extrabold shadow-sticker float-a ${TILE[accent]}`}>
+          <span
+            className={`mb-5 grid h-16 w-16 place-items-center rounded-2xl border-[2.5px] border-ink font-display text-3xl font-extrabold shadow-sticker float-a ${TILE[accent]}`}
+          >
             {monogram}
           </span>
           <p className="font-display text-2xl font-extrabold tracking-tight text-paper sm:text-3xl">
@@ -103,8 +116,8 @@ export function GameCanvas({
             <span className="anim-caret ml-1 inline-block text-coral">▍</span>
           </p>
           <p className="mt-2 max-w-sm text-sm text-paper/55">
-            {title} mounts on the Steamlink canvas when it&apos;s ported into the
-            library. The cabinet is wired and powered on.
+            {title} mounts on the Steamlink canvas when it&apos;s ported into the library. The
+            cabinet is wired and powered on.
           </p>
         </div>
 

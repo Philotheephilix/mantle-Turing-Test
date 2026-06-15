@@ -15,9 +15,9 @@ import { http, createPublicClient, createWalletClient, formatEther, parseEther }
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Address, Hex } from "@steamlink/types";
 import { usdcToWei } from "@steamlink/core";
-import { BASE_SEPOLIA_RPC_URL, RELAYER_PRIVATE_KEY } from "./config";
+import { MANTLE_SEPOLIA_RPC_URL, RELAYER_PRIVATE_KEY } from "./config";
 import { deployment } from "./deployment";
-import { baseSepolia, USDC_ABI } from "./engine";
+import { mantleSepoliaTestnet, USDC_ABI } from "./engine";
 
 export interface PlayerKey {
   role: "human" | "bot";
@@ -66,8 +66,8 @@ export async function ensurePlayers(opts: EnsurePlayersOptions = {}): Promise<Pl
   const fresh = opts.fresh ?? process.env.FRESH === "1";
 
   const relayer = privateKeyToAccount(RELAYER_PRIVATE_KEY);
-  const publicClient = createPublicClient({ chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
-  const relayerWallet = createWalletClient({ account: relayer, chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
+  const publicClient = createPublicClient({ chain: mantleSepoliaTestnet, transport: http(MANTLE_SEPOLIA_RPC_URL) });
+  const relayerWallet = createWalletClient({ account: relayer, chain: mantleSepoliaTestnet, transport: http(MANTLE_SEPOLIA_RPC_URL) });
 
   let players: PlayerKey[];
   const existing = readPlayers();
@@ -96,7 +96,7 @@ export async function ensurePlayers(opts: EnsurePlayersOptions = {}): Promise<Pl
     // 1) ETH top-up.
     const haveEth = await publicClient.getBalance({ address: p.address });
     if (haveEth < parseEther(ethEach)) {
-      const ethHash = await relayerWallet.sendTransaction({ account: relayer, chain: baseSepolia, to: p.address, value: parseEther(ethEach) });
+      const ethHash = await relayerWallet.sendTransaction({ account: relayer, chain: mantleSepoliaTestnet, to: p.address, value: parseEther(ethEach) });
       await publicClient.waitForTransactionReceipt({ hash: ethHash });
       console.log(`  ETH +${ethEach} tx ${ethHash}`);
     } else {
@@ -125,7 +125,7 @@ export async function ensurePlayers(opts: EnsurePlayersOptions = {}): Promise<Pl
           functionName: "transfer",
           args: [p.address, usdcToWei(usdcEach) - haveUsdc],
           account: relayer,
-          chain: baseSepolia,
+          chain: mantleSepoliaTestnet,
         });
         await publicClient.waitForTransactionReceipt({ hash: usdcHash });
         console.log(`  USDC topped to ${usdcEach} tx ${usdcHash}`);
@@ -138,7 +138,7 @@ export async function ensurePlayers(opts: EnsurePlayersOptions = {}): Promise<Pl
 
     // 3) Player approves the manager to spend its USDC (the player's OWN tx).
     const account = privateKeyToAccount(p.privateKey);
-    const wallet = createWalletClient({ account, chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
+    const wallet = createWalletClient({ account, chain: mantleSepoliaTestnet, transport: http(MANTLE_SEPOLIA_RPC_URL) });
     const allowance = (await publicClient.readContract({
       address: deployment.usdc,
       abi: USDC_ABI,
@@ -152,7 +152,7 @@ export async function ensurePlayers(opts: EnsurePlayersOptions = {}): Promise<Pl
         functionName: "approve",
         args: [deployment.delegationManager, usdcToWei("1000")],
         account,
-        chain: baseSepolia,
+        chain: mantleSepoliaTestnet,
       });
       await publicClient.waitForTransactionReceipt({ hash: apHash });
       console.log(`  approve(manager) tx ${apHash}`);

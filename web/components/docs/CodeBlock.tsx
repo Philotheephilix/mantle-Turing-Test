@@ -100,7 +100,12 @@ function CopyIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
       <rect x="9" y="9" width="11" height="11" rx="2.5" stroke="currentColor" strokeWidth="2.2" />
-      <path d="M5 15V5.5A2.5 2.5 0 0 1 7.5 3H15" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      <path
+        d="M5 15V5.5A2.5 2.5 0 0 1 7.5 3H15"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -108,7 +113,13 @@ function CopyIcon() {
 function CheckIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M4 12.5l5 5L20 6.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M4 12.5l5 5L20 6.5"
+        stroke="currentColor"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

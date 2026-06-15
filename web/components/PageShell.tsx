@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { Logo } from "./Logo";
 import type { Mode } from "@/lib/mode";
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { Logo } from "./Logo";
 
 /** Segmented Gamer / Dev switch with a sliding sticker thumb. */
 function ModeToggle({ mode, onSwitch }: { mode: Mode; onSwitch: (m: Mode) => void }) {
@@ -39,7 +39,10 @@ export function PageShell({
   onSwitch: (m: Mode) => void;
   children: React.ReactNode;
 }) {
-  const cta = mode === "gamer" ? { label: "Play", href: "#library" } : { label: "Get started", href: "#start" };
+  const cta =
+    mode === "gamer"
+      ? { label: "Play", href: "#library" }
+      : { label: "Get started", href: "#start" };
   return (
     <div className="overflow-x-clip">
       <header className="sticky top-0 z-50 border-b-[2.5px] border-ink bg-paper/85 backdrop-blur-md">
@@ -72,8 +75,13 @@ export function PageShell({
       <footer className="mt-12 border-t-[2.5px] border-ink bg-paper-deep">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-5 py-12 sm:flex-row sm:items-center sm:px-8">
           <Logo size={34} />
-          <p className="text-sm font-medium text-ink-soft">Gasless onchain games, settled on Base.</p>
-          <button onClick={() => onSwitch(mode === "gamer" ? "developer" : "gamer")} className="text-sm font-bold text-ink-soft underline decoration-ink/30 decoration-2 underline-offset-4 hover:text-ink hover:decoration-ink">
+          <p className="text-sm font-medium text-ink-soft">
+            Gasless onchain games, settled on Mantle.
+          </p>
+          <button
+            onClick={() => onSwitch(mode === "gamer" ? "developer" : "gamer")}
+            className="text-sm font-bold text-ink-soft underline decoration-ink/30 decoration-2 underline-offset-4 hover:text-ink hover:decoration-ink"
+          >
             {mode === "gamer" ? "I'm actually a developer" : "I'm actually here to play"}
           </button>
         </div>

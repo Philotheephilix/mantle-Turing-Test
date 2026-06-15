@@ -13,7 +13,7 @@ import { DirectRelayer } from "@nexus/relayer";
 import uno from "./games/uno";
 
 const backend = createBackend({
-  chain: "base",
+  chain: "mantle",
   world: process.env.WORLD_ADDRESS,
   relayer: new DirectRelayer({ ... }),   // OneShotRelayer in prod
   games: [uno],                          // auto-mounted at /game/uno

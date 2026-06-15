@@ -36,14 +36,14 @@ import {
   encodeFunctionData,
 } from "viem";
 import { type LocalAccount, privateKeyToAccount } from "viem/accounts";
-import { BASE_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_RPC_URL, RELAYER_PRIVATE_KEY } from "./config";
+import { MANTLE_SEPOLIA_CHAIN_ID, MANTLE_SEPOLIA_RPC_URL, RELAYER_PRIVATE_KEY } from "./config";
 import { addresses, deployment, MONOPOLY_SYSTEM_ID } from "./deployment";
 
-export const baseSepolia = {
-  id: BASE_SEPOLIA_CHAIN_ID,
-  name: "Base Sepolia",
-  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [BASE_SEPOLIA_RPC_URL] } },
+export const mantleSepoliaTestnet = {
+  id: MANTLE_SEPOLIA_CHAIN_ID,
+  name: "Mantle Sepolia",
+  nativeCurrency: { name: "Mantle", symbol: "MNT", decimals: 18 },
+  rpcUrls: { default: { http: [MANTLE_SEPOLIA_RPC_URL] } },
 } as const satisfies Chain;
 
 // ── ABIs ────────────────────────────────────────────────────────────────────
@@ -245,8 +245,8 @@ export function getEngine(): Promise<MonopolyEngine> {
 
 async function boot(): Promise<MonopolyEngine> {
   const relayer = privateKeyToAccount(RELAYER_PRIVATE_KEY);
-  const publicClient = createPublicClient({ chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) }) as PublicClient;
-  const rawWallet = createWalletClient({ account: relayer, chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
+  const publicClient = createPublicClient({ chain: mantleSepoliaTestnet, transport: http(MANTLE_SEPOLIA_RPC_URL) }) as PublicClient;
+  const rawWallet = createWalletClient({ account: relayer, chain: mantleSepoliaTestnet, transport: http(MANTLE_SEPOLIA_RPC_URL) });
   const relayerWallet = wrapRetryingWallet(rawWallet, publicClient, relayer);
   return { publicClient, relayerWallet, relayer, addrs: addresses };
 }
@@ -379,7 +379,7 @@ async function submitAndConfirm(
 ): Promise<{ txHash: Hex; blockNumber: bigint; logs: { address: string; topics: readonly Hex[]; data: Hex }[] }> {
   const hash = (await e.relayerWallet.sendTransaction({
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
     to: e.addrs.delegationManager,
     data,
   })) as Hex;
@@ -504,7 +504,7 @@ async function adminWrite(e: MonopolyEngine, to: Address, abi: readonly unknown[
     functionName: fn as never,
     args: args as never,
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
   } as never);
   await e.publicClient.waitForTransactionReceipt({ hash });
   return hash;

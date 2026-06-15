@@ -88,7 +88,7 @@ export function runForgeScript(p: ForgeScriptParams): void {
 export interface AnvilOptions {
   chainId?: number;
   port?: number;
-  /** Base RPC to fork from (copy-on-read). Omit for a fresh chain. */
+  /** Mantle RPC to fork from (copy-on-read). Omit for a fresh chain. */
   forkUrl?: string;
   /** Pin the fork at a block for determinism. */
   forkBlockNumber?: number;

@@ -8,7 +8,7 @@ pragma solidity ^0.8.23;
  *         the oracle delivers words. It is intentionally a SEAM only: the on-chain
  *         oracle wiring (`VRFConsumerBaseV2Plus`, `requestRandomWords`,
  *         `fulfillRandomWords`) is NOT implemented here because Chainlink VRF v2.5
- *         requires a funded subscription on Base which is not available in CI.
+ *         requires a funded subscription on Mantle which is not available in CI.
  *
  * @dev    A future `VRFRandomnessTier` would: (1) hold the subscription credentials,
  *         (2) submit `requestRandomWords`, (3) on `fulfillRandomWords` invoke
@@ -25,7 +25,7 @@ interface IRandomnessConsumer {
 /**
  * @title RandomnessCoordinator
  * @notice Fully on-chain randomness for the Nexus game engine (design §9, phase-09).
- *         Exposes two tiers that need NO external oracle, so they run live on Base
+ *         Exposes two tiers that need NO external oracle, so they run live on Mantle
  *         Sepolia with no VRF subscription:
  *
  *           1. `commit-reveal` (trustless): the requester commits `keccak256(secret)`
@@ -135,6 +135,15 @@ contract RandomnessCoordinator {
      *         revealed; `keccak256(secret)` matches the commitment; the commit block
      *         hash is still available (within the last 256 blocks).
      *
+     *         CONSUMER NOTE (selective-abort): the committer cannot BIAS the word
+     *         (the secret is locked before `blockhash(commitBlock)` is known), but
+     *         once that block is mined they can compute the result and simply never
+     *         reveal — at no cost — if it is unfavorable. A game where revealing is
+     *         optional must therefore bind reveal to a forced action (reveal on the
+     *         player's behalf, slash a deposit, or treat non-reveal within N blocks
+     *         as a deterministic loss). The coordinator cannot enforce this; the
+     *         consuming system must.
+     *
      * @param requestId The id returned by `requestCommit`.
      * @param secret    The pre-image of the committed hash.
      * @return randomWord The derived random word.
@@ -162,8 +171,11 @@ contract RandomnessCoordinator {
 
     /**
      * @notice Tier 2: single-call randomness. LOW-STAKES ONLY — a beacon proposer
-     *         can weakly bias `block.prevrandao`, so never use this where an attacker
-     *         profits from biasing the outcome (use `commit-reveal` or `vrf` there).
+     *         can weakly bias `block.prevrandao`, AND a caller that acts on the
+     *         result in the same transaction can be MEV-sandwiched (the word is
+     *         fully derivable mid-tx). NEVER wire this into a money path: use
+     *         `commit-reveal` (or `vrf`) wherever an attacker profits from biasing
+     *         or simulating the outcome.
      * @return randomWord `keccak256(block.prevrandao, block.timestamp, requester, nonce)`.
      */
     function fastRandom() external returns (uint256 randomWord) {

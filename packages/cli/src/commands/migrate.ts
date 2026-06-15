@@ -18,7 +18,7 @@ export interface MigrateOptions {
 }
 
 /**
- * `nexus migrate --network <base-sepolia|base>` — upgrade system logic WITHOUT
+ * `nexus migrate --network <mantle-sepolia|mantle>` — upgrade system logic WITHOUT
  * touching stored tables. Storage lives in the World keyed by table id; systems
  * are stateless logic contracts in the World's registry. Migrate re-runs codegen
  * (to refresh the manifest), then deploys the new system contract(s) and
@@ -28,7 +28,7 @@ export interface MigrateOptions {
 export async function migrateCommand(opts: MigrateOptions): Promise<void> {
   const cwd = opts.cwd ?? process.cwd();
   if (!isChainKey(opts.network)) {
-    throw new CliError(`Nexus is Base-only. --network must be "base" or "base-sepolia".`);
+    throw new CliError(`Nexus is Mantle-only. --network must be "mantle" or "mantle-sepolia".`);
   }
   const chain = CHAINS[opts.network];
 
@@ -62,9 +62,9 @@ export async function migrateCommand(opts: MigrateOptions): Promise<void> {
     throw new CliError("PRIVATE_KEY is not set. Export a funded deployer key before migrating.");
   }
   const rpcUrl =
-    (opts.network === "base"
-      ? process.env.BASE_RPC_URL
-      : process.env.BASE_SEPOLIA_RPC_URL
+    (opts.network === "mantle"
+      ? process.env.MANTLE_RPC_URL
+      : process.env.MANTLE_SEPOLIA_RPC_URL
     )?.trim() || chain.defaultRpcUrl;
 
   const contracts = resolve(

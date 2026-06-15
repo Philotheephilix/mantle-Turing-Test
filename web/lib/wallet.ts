@@ -19,7 +19,7 @@
  *      The smart account must be DEPLOYED before signing (a one-time SimpleFactory
  *      call — paid by the EOA) so it has code for the ERC-1271 path; a
  *      counterfactual account would yield an ERC-6492-wrapped signature the plain
- *      SignatureChecker can't verify. The player brings their own Base-Sepolia
+ *      SignatureChecker can't verify. The player brings their own Mantle-Sepolia
  *      USDC (held by the SMART ACCOUNT address) + a little ETH for the one-time
  *      deploy + the `approve`.
  *   2. GUEST WALLET (fallback when there is no injected wallet — e.g. the headless
@@ -35,20 +35,20 @@ import type { Address, Hex } from "@steamlink/types";
 import { type LocalAccount, generatePrivateKey, privateKeyToAccount, toAccount } from "viem/accounts";
 import { createPublicClient, createWalletClient, custom, encodeFunctionData, http, maxUint256 } from "viem";
 import { createBundlerClient } from "viem/account-abstraction";
-import { baseSepolia } from "viem/chains";
+import { mantleSepoliaTestnet } from "viem/chains";
 import { Implementation, toMetaMaskSmartAccount } from "@metamask/delegation-toolkit";
 import { USDC_ADDRESS, RELAYER_ADDRESS } from "./constants";
 
 const GUEST_KEY_STORAGE = "steamlink.guest.pk";
-// An ERC-4337 bundler URL for Base Sepolia. The MetaMask smart account performs
+// An ERC-4337 bundler URL for Mantle Sepolia. The MetaMask smart account performs
 // its one-time deploy + USDC `approve` as a UserOperation (its `execute` is
 // onlyEntryPoint — an owner EOA cannot drive it directly). Set this to a Pimlico
 // / Alchemy / Infura bundler endpoint for the live MetaMask path. (The guest +
 // headless e2e path does NOT use a bundler.)
-const BUNDLER_URL = process.env.NEXT_PUBLIC_BASE_SEPOLIA_BUNDLER_RPC ?? "";
-// A public Base-Sepolia RPC the browser can use to read allowances + send the one
+const BUNDLER_URL = process.env.NEXT_PUBLIC_MANTLE_SEPOLIA_BUNDLER_RPC ?? "";
+// A public Mantle-Sepolia RPC the browser can use to read allowances + send the one
 // `approve` tx (the guest path). MetaMask uses its own RPC via the injected provider.
-const BROWSER_RPC = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC ?? "https://base-sepolia-rpc.publicnode.com";
+const BROWSER_RPC = process.env.NEXT_PUBLIC_MANTLE_SEPOLIA_RPC ?? "https://rpc.sepolia.mantle.xyz";
 
 const USDC_ABI = [
   { type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "o", type: "address" }, { name: "s", type: "address" }], outputs: [{ type: "uint256" }] },
@@ -75,7 +75,7 @@ export function hasInjectedWallet(): boolean {
   return injected() !== null;
 }
 
-const publicClient = createPublicClient({ chain: baseSepolia, transport: http(BROWSER_RPC) });
+const publicClient = createPublicClient({ chain: mantleSepoliaTestnet, transport: http(BROWSER_RPC) });
 
 async function ensureAllowance(owner: Address, manager: Address, send: (amount: bigint) => Promise<Hex>, needed: bigint): Promise<void> {
   const current = (await publicClient.readContract({
@@ -88,7 +88,7 @@ async function ensureAllowance(owner: Address, manager: Address, send: (amount: 
   } catch (e) {
     const m = (e as Error)?.message ?? String(e);
     throw new Error(
-      `Couldn't approve USDC. Use a normal wallet that holds a little Base-Sepolia ETH (for the one approve) — not a smart/relay account. (${m.slice(0, 120)})`,
+      `Couldn't approve USDC. Use a normal wallet that holds a little Mantle-Sepolia ETH (for the one approve) — not a smart/relay account. (${m.slice(0, 120)})`,
     );
   }
 }
@@ -101,8 +101,8 @@ async function ensureAllowance(owner: Address, manager: Address, send: (amount: 
 // USDC balance persists across sessions).
 const DEPLOY_SALT: Hex = `0x${"00".repeat(32)}`;
 
-/** Ensure the wallet is on Base Sepolia (0x14a34 = 84532), adding it if missing. */
-async function ensureBaseSepolia(eth: Eip1193): Promise<void> {
+/** Ensure the wallet is on Mantle Sepolia (0x14a34 = 5003), adding it if missing. */
+async function ensureMantleSepolia(eth: Eip1193): Promise<void> {
   try {
     await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x14a34" }] });
   } catch (e) {
@@ -110,9 +110,9 @@ async function ensureBaseSepolia(eth: Eip1193): Promise<void> {
       await eth.request({
         method: "wallet_addEthereumChain",
         params: [{
-          chainId: "0x14a34", chainName: "Base Sepolia",
-          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-          rpcUrls: [BROWSER_RPC], blockExplorerUrls: ["https://sepolia.basescan.org"],
+          chainId: "0x14a34", chainName: "Mantle Sepolia",
+          nativeCurrency: { name: "Mantle", symbol: "MNT", decimals: 18 },
+          rpcUrls: [BROWSER_RPC], blockExplorerUrls: ["https://sepolia.mantlescan.xyz"],
         }],
       });
     }
@@ -133,9 +133,9 @@ export async function connectMetaMask(): Promise<Connection> {
   if (ownerEoa.toLowerCase() === RELAYER_ADDRESS.toLowerCase()) {
     throw new Error("That's the relayer account — switch MetaMask to a different wallet to play.");
   }
-  await ensureBaseSepolia(eth);
+  await ensureMantleSepolia(eth);
 
-  const wallet = createWalletClient({ account: ownerEoa, chain: baseSepolia, transport: custom(eth) });
+  const wallet = createWalletClient({ account: ownerEoa, chain: mantleSepoliaTestnet, transport: custom(eth) });
 
   // The owner signer: a viem account whose signTypedData/signMessage route to the
   // injected wallet. The toolkit only needs { address, signMessage, signTypedData }.
@@ -201,7 +201,7 @@ export async function connectMetaMask(): Promise<Connection> {
 
 /** Approve the delegation manager from the MetaMask smart account via a bundler
  *  UserOp (which also deploys the account on first use). Idempotent: returns
- *  early once the allowance already suffices. Requires NEXT_PUBLIC_BASE_SEPOLIA_BUNDLER_RPC. */
+ *  early once the allowance already suffices. Requires NEXT_PUBLIC_MANTLE_SEPOLIA_BUNDLER_RPC. */
 async function ensureSmartAccountApproval(
   smartAccount: Awaited<ReturnType<typeof toMetaMaskSmartAccount>>,
   smartAddress: Address,
@@ -215,7 +215,7 @@ async function ensureSmartAccountApproval(
 
   if (!BUNDLER_URL) {
     throw new Error(
-      "MetaMask Smart Account needs an ERC-4337 bundler to approve USDC. Set NEXT_PUBLIC_BASE_SEPOLIA_BUNDLER_RPC to a Base-Sepolia bundler URL (Pimlico/Alchemy/Infura).",
+      "MetaMask Smart Account needs an ERC-4337 bundler to approve USDC. Set NEXT_PUBLIC_MANTLE_SEPOLIA_BUNDLER_RPC to a Mantle-Sepolia bundler URL (Pimlico/Alchemy/Infura).",
     );
   }
   const approveData = encodeFunctionData({
@@ -269,13 +269,13 @@ export function getGuestAccount(): LocalAccount {
 /** Connect the localStorage-backed guest wallet (no popup). */
 export function connectGuest(): Connection {
   const account = getGuestAccount();
-  const wallet = createWalletClient({ account, chain: baseSepolia, transport: http(BROWSER_RPC) });
+  const wallet = createWalletClient({ account, chain: mantleSepoliaTestnet, transport: http(BROWSER_RPC) });
   return {
     account,
     kind: "guest",
     ensureApproval: (manager, needed) =>
       ensureAllowance(account.address, manager, (amount) =>
-        wallet.writeContract({ address: USDC_ADDRESS, abi: USDC_ABI, functionName: "approve", args: [manager, amount], account, chain: baseSepolia }),
+        wallet.writeContract({ address: USDC_ADDRESS, abi: USDC_ABI, functionName: "approve", args: [manager, amount], account, chain: mantleSepoliaTestnet }),
         needed),
   };
 }

@@ -5,7 +5,7 @@ import { DirectRelayer } from "./direct.js";
 /**
  * Unit coverage for the transport-level invariants that don't require a chain.
  * The full LIVE path (real broadcasts + receipts) is exercised by the scripts/
- * live test suite against Base Sepolia — not here.
+ * live test suite against Mantle Sepolia — not here.
  */
 function fakeClients(addr: string) {
   const wallet = {
@@ -13,7 +13,7 @@ function fakeClients(addr: string) {
     sendTransaction: vi.fn(),
   } as never;
   const publicClient = {
-    chain: { name: "Base Sepolia" },
+    chain: { name: "Mantle Sepolia" },
     waitForTransactionReceipt: vi.fn(),
   } as never;
   return { wallet, publicClient };
@@ -26,12 +26,12 @@ describe("DirectRelayer.getCapabilities", () => {
     const r = new DirectRelayer({
       wallet,
       publicClient,
-      usdc: asAddress(CHAINS["base-sepolia"].usdc),
+      usdc: asAddress(CHAINS["mantle-sepolia"].usdc),
     });
     const caps = await r.getCapabilities();
-    expect(caps.tokens.USDC).toBe(CHAINS["base-sepolia"].usdc.toLowerCase());
+    expect(caps.tokens.USDC).toBe(CHAINS["mantle-sepolia"].usdc.toLowerCase());
     expect(caps.targetAddress).toBe(asAddress(me));
-    expect(caps.chains).toEqual(["Base Sepolia"]);
+    expect(caps.chains).toEqual(["Mantle Sepolia"]);
   });
 });
 
@@ -41,7 +41,7 @@ describe("DirectRelayer.submitBundle", () => {
     const r = new DirectRelayer({
       wallet,
       publicClient,
-      usdc: asAddress(CHAINS["base-sepolia"].usdc),
+      usdc: asAddress(CHAINS["mantle-sepolia"].usdc),
     });
     await expect(r.submitBundle({ encodedTxns: [] })).rejects.toThrow(/no transactions/);
   });

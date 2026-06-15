@@ -54,7 +54,7 @@ export interface IndexerField {
 }
 
 export interface IndexerConfig {
-  chain: "base";
+  chain: "mantle";
   world: Hex;
   games: IndexerGameSchema[];
 }

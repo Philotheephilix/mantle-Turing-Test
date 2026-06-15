@@ -42,7 +42,7 @@ loadSharedEnv();
 
 /**
  * ⚠️ TESTNET ONLY — hardcoded so the example is self-contained and runnable out of
- * the box. Base Sepolia test key provided for the demo; holds only testnet
+ * the box. Mantle Sepolia test key provided for the demo; holds only testnet
  * ETH/USDC. ROTATE before any mainnet use; never reuse for real funds.
  * Overridable via NEXUS_RELAYER_PRIVATE_KEY.
  */
@@ -63,10 +63,10 @@ export const RELAYER_PRIVATE_KEY = (process.env.NEXUS_RELAYER_PRIVATE_KEY ||
   HARDCODED_RELAYER_KEY) as `0x${string}`;
 export const RELAYER_ADDRESS = (process.env.NEXUS_RELAYER_ADDRESS ||
   "0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD") as `0x${string}`;
-export const BASE_SEPOLIA_RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
-export const BASE_SEPOLIA_CHAIN_ID = 84532;
+export const MANTLE_SEPOLIA_RPC_URL = process.env.MANTLE_SEPOLIA_RPC_URL || "https://rpc.sepolia.mantle.xyz";
+export const MANTLE_SEPOLIA_CHAIN_ID = 5003;
 
-/** The buy-in (real USDC → Pot on Base Sepolia). Every in-game money transfer FROM a
+/** The buy-in (real USDC → Pot on Mantle Sepolia). Every in-game money transfer FROM a
  *  player (buy / rent / tax / build / fine / card debit) is settled as a real x402
  *  charge to the Pot at the $1 = 0.0001 USDC scale (see lib/board DOLLAR_TO_USDC), so
  *  charges are real but tiny. The pot pays the last solvent player on settle. */
@@ -78,10 +78,10 @@ export function serverConfig(): MonopolyServerConfig {
     relayerKey,
     relayerAddress: (process.env.NEXUS_RELAYER_ADDRESS ||
       "0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD") as `0x${string}`,
-    rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+    rpcUrl: process.env.MANTLE_SEPOLIA_RPC_URL || "https://rpc.sepolia.mantle.xyz",
     usdc: (process.env.USDC_ADDRESS ||
-      "0x036CbD53842c5426634e7929541eC2318f3dCF7e") as `0x${string}`,
-    chainId: 84532,
-    explorer: "https://sepolia.basescan.org",
+      "0x189BdF9e9e4FfE4AC0e8eD0479b158843Bcd0cde") as `0x${string}`,
+    chainId: 5003,
+    explorer: "https://sepolia.mantlescan.xyz",
   };
 }

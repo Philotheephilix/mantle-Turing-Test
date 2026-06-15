@@ -31,7 +31,7 @@ export interface DeployParams {
 /**
  * Deploy the full Nexus stack via the Foundry DeployFull script and return the
  * addresses it wrote to packages/contracts/deployments/<chainId>.json. This runs
- * REAL on-chain deployments against whatever RPC is given (local anvil or Base).
+ * REAL on-chain deployments against whatever RPC is given (local anvil or Mantle).
  */
 export function deployNexus(p: DeployParams): DeployedNexus {
   execFileSync(

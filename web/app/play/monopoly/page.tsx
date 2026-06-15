@@ -1,15 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PRIVY_ENABLED } from "@/lib/monopoly/wallet";
+import { linkifyTx } from "@/components/linkifyTx";
 import { Board, Pawn, tokenColorFor } from "@/components/monopoly/Board";
 import { Dice } from "@/components/monopoly/Dice";
-import { MonopolyClient, type GameView } from "@/lib/monopoly/monopoly-client";
-import { BOARD } from "@/lib/monopoly/board";
-import { hasInjectedWallet } from "@/lib/wallet";
 import { useWallet } from "@/components/wallet/WalletProvider";
-import { linkifyTx } from "@/components/linkifyTx";
+import { BOARD } from "@/lib/monopoly/board";
 import { addresses as monoAddresses } from "@/lib/monopoly/deployment";
+import { type GameView, MonopolyClient } from "@/lib/monopoly/monopoly-client";
+import { PRIVY_ENABLED } from "@/lib/monopoly/wallet";
+import { hasInjectedWallet } from "@/lib/wallet";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const MONOPOLY_MANAGER = monoAddresses.delegationManager;
 
@@ -47,26 +47,39 @@ export default function Page() {
     setLog((l) => [`${new Date().toLocaleTimeString()}  ${m}`, ...l].slice(0, 50));
   }, []);
 
-  const client = useMemo(() => (account ? new MonopolyClient(BACKEND_URL, account) : null), [account]);
+  const client = useMemo(
+    () => (account ? new MonopolyClient(BACKEND_URL, account) : null),
+    [account],
+  );
 
   // On connect → lobby; once an ERC-7715 grant exists, store it with the Monopoly backend.
   useEffect(() => {
     if (account && phase === "connect") setPhase("waiting");
-    if (account && typeof window !== "undefined") (window as unknown as Record<string, unknown>).__MONOPOLY_ADDR__ = account.address;
+    if (account && typeof window !== "undefined")
+      (window as unknown as Record<string, unknown>).__MONOPOLY_ADDR__ = account.address;
   }, [account, phase]);
   useEffect(() => {
     if (!account || !grant || grantStoredRef.current) return;
     grantStoredRef.current = true;
     void new MonopolyClient(BACKEND_URL, account)
       .grantSpend(grant)
-      .then((r) => addLog(r.ok ? `spend permission stored — up to ${grant.capUsd} USDC/day` : `grant store failed: ${r.error}`))
+      .then((r) =>
+        addLog(
+          r.ok
+            ? `spend permission stored — up to ${grant.capUsd} USDC/day`
+            : `grant store failed: ${r.error}`,
+        ),
+      )
       .catch((e) => addLog(`grant store failed: ${e instanceof Error ? e.message : String(e)}`));
   }, [account, grant, addLog]);
 
   const connectWith = useCallback(
     async (mode: "metamask" | "guest") => {
       const c = await wallet.connect(mode);
-      if (c) addLog(`connected ${c.kind === "metamask" ? "MetaMask Smart Account" : "guest wallet"} ${short(c.account.address)}`);
+      if (c)
+        addLog(
+          `connected ${c.kind === "metamask" ? "MetaMask Smart Account" : "guest wallet"} ${short(c.account.address)}`,
+        );
       if (wallet.error) setErr(wallet.error);
     },
     [wallet, addLog],
@@ -107,10 +120,16 @@ export default function Page() {
 
   const me = useMemo(() => {
     if (!account || !view) return null;
-    return view.players.find((p) => p.address.toLowerCase() === account.address.toLowerCase()) ?? null;
+    return (
+      view.players.find((p) => p.address.toLowerCase() === account.address.toLowerCase()) ?? null
+    );
   }, [account, view]);
 
-  const myTurn = Boolean(account && view?.currentTurn && view.currentTurn.toLowerCase() === account.address.toLowerCase());
+  const myTurn = Boolean(
+    account &&
+      view?.currentTurn &&
+      view.currentTurn.toLowerCase() === account.address.toLowerCase(),
+  );
   const pending = view?.pending ?? null;
 
   useEffect(() => {
@@ -121,7 +140,9 @@ export default function Page() {
         const st = await client.state();
         if (!alive || !st.ok) return;
         setView(st);
-        const seat = account && st.players.find((p) => p.address.toLowerCase() === account.address.toLowerCase());
+        const seat =
+          account &&
+          st.players.find((p) => p.address.toLowerCase() === account.address.toLowerCase());
         setPhase((p) => {
           if (st.winner) return "done";
           if (!seat) return p === "waiting" ? "waiting" : p;
@@ -135,7 +156,10 @@ export default function Page() {
     };
     void tick();
     const id = setInterval(tick, 2000);
-    return () => { alive = false; clearInterval(id); };
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
   }, [client, phase, account]);
 
   const join = useCallback(async () => {
@@ -150,7 +174,9 @@ export default function Page() {
       const useGrant = conn?.kind === "metamask" && grant !== null;
       let res: { ok: boolean; txHash?: string; error?: string };
       if (useGrant) {
-        addLog(`signing gameplay delegation, paying ${view.fee} USDC buy-in via your MetaMask spend permission (x402)…`);
+        addLog(
+          `signing gameplay delegation, paying ${view.fee} USDC buy-in via your MetaMask spend permission (x402)…`,
+        );
         res = await client.joinViaGrant(view.roomId);
       } else {
         // GUEST rail: bring your own USDC — approve the delegation manager, then sign +
@@ -187,7 +213,10 @@ export default function Page() {
         if (!res.ok) throw new Error(res.error ?? `${action} rejected`);
         if (res.dice) {
           setDie({ d1: res.dice[0], d2: res.dice[1] });
-          setLastTx({ text: `Rolled ${res.dice[0]}+${res.dice[1]}`, tx: res.recordTx ?? res.txHash ?? "" });
+          setLastTx({
+            text: `Rolled ${res.dice[0]}+${res.dice[1]}`,
+            tx: res.recordTx ?? res.txHash ?? "",
+          });
         } else if (res.txHash) {
           setLastTx({ text: `${action} · settled on-chain`, tx: res.txHash });
         }
@@ -212,7 +241,10 @@ export default function Page() {
       const pr = view.properties[sp.id];
       if (!pr || pr.owner?.toLowerCase() !== me.address.toLowerCase() || pr.mortgaged) continue;
       const members = BOARD.filter((s) => s.group === sp.group).map((s) => s.id);
-      if (!members.every((m) => view.properties[m]?.owner?.toLowerCase() === me.address.toLowerCase())) continue;
+      if (
+        !members.every((m) => view.properties[m]?.owner?.toLowerCase() === me.address.toLowerCase())
+      )
+        continue;
       if (pr.houses >= 5) continue;
       const minH = Math.min(...members.map((m) => view.properties[m].houses));
       if (pr.houses > minH) continue;
@@ -230,20 +262,29 @@ export default function Page() {
     return (
       <main className="min-h-screen flex items-center justify-center p-6">
         <div className="sticker rounded-chunk bg-paper p-10 max-w-md w-full text-center shadow-sticker-lg">
-          <div className="font-display text-5xl font-extrabold tracking-tight text-grape">NEXUS</div>
-          <div className="text-ink-faint tracking-[0.3em] text-sm mt-2 font-semibold uppercase">Onchain Monopoly</div>
+          <div className="font-display text-5xl font-extrabold tracking-tight text-grape">
+            NEXUS
+          </div>
+          <div className="text-ink-faint tracking-[0.3em] text-sm mt-2 font-semibold uppercase">
+            Onchain Monopoly
+          </div>
           <p className="text-ink-soft mt-6 text-sm leading-relaxed">
-            The <b>full</b> Monopoly ruleset on Base Sepolia. Gasless dice via an onchain randomness
-            coordinator; every move is signed by <b>your own</b> wallet via a single Nexus delegation.
-            Buy-in, rent, tax and builds settle as <span className="text-grape font-bold">real USDC payments</span>{" "}
-            from your wallet, bounded on-chain. <b>Win = be the last player not bankrupt.</b>
+            The <b>full</b> Monopoly ruleset on Mantle Sepolia. Gasless dice via an onchain
+            randomness coordinator; every move is signed by <b>your own</b> wallet via a single
+            Nexus delegation. Buy-in, rent, tax and builds settle as{" "}
+            <span className="text-grape font-bold">real USDC payments</span> from your wallet,
+            bounded on-chain. <b>Win = be the last player not bankrupt.</b>
           </p>
           <button
             data-testid="login-btn"
             onClick={connect}
             className="sticker sticker-lift sticker-press w-full mt-8 py-3 text-base rounded-chunk bg-grape text-paper font-display font-extrabold tracking-wide"
           >
-            {hasInjectedWallet() ? "🦊 Connect MetaMask" : PRIVY_ENABLED ? "Log in with Privy" : "Play as Guest"}
+            {hasInjectedWallet()
+              ? "🦊 Connect MetaMask"
+              : PRIVY_ENABLED
+                ? "Log in with Privy"
+                : "Play as Guest"}
           </button>
           <button
             type="button"
@@ -254,9 +295,17 @@ export default function Page() {
             No wallet? Use a temporary guest wallet
           </button>
           <div className="text-ink-faint text-[11px] mt-4">
-            MetaMask derives a Hybrid smart account · bring a little Base-Sepolia USDC for the buy-in
+            MetaMask derives a Hybrid smart account · bring a little Mantle-Sepolia USDC for the
+            buy-in
           </div>
-          {err && <div className="mt-4 rounded-chunk p-3 bg-berry/10 border-[2px] border-berry/40 text-berry text-xs font-semibold" data-testid="error">{err}</div>}
+          {err && (
+            <div
+              className="mt-4 rounded-chunk p-3 bg-berry/10 border-[2px] border-berry/40 text-berry text-xs font-semibold"
+              data-testid="error"
+            >
+              {err}
+            </div>
+          )}
         </div>
       </main>
     );
@@ -271,15 +320,26 @@ export default function Page() {
               MO
             </span>
             <div>
-              <span className="font-display text-xl font-extrabold tracking-tight text-ink">NEXUS</span>
-              <span className="text-ink-faint text-xs ml-2 tracking-[0.2em] uppercase font-semibold">Monopoly · Full Rules</span>
+              <span className="font-display text-xl font-extrabold tracking-tight text-ink">
+                NEXUS
+              </span>
+              <span className="text-ink-faint text-xs ml-2 tracking-[0.2em] uppercase font-semibold">
+                Monopoly · Full Rules
+              </span>
             </div>
           </div>
           {account ? (
             <div className="flex items-center gap-2">
               <span
                 className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide border-[2px] border-ink"
-                style={{ background: conn?.kind === "metamask" ? "oklch(0.56 0.17 300 / 0.15)" : "oklch(0.71 0.15 150 / 0.15)", color: conn?.kind === "metamask" ? "oklch(0.56 0.17 300)" : "oklch(0.71 0.15 150)" }}
+                style={{
+                  background:
+                    conn?.kind === "metamask"
+                      ? "oklch(0.56 0.17 300 / 0.15)"
+                      : "oklch(0.71 0.15 150 / 0.15)",
+                  color:
+                    conn?.kind === "metamask" ? "oklch(0.56 0.17 300)" : "oklch(0.71 0.15 150)",
+                }}
               >
                 {conn?.kind === "metamask" ? "Smart Account" : "Guest"}
               </span>
@@ -305,15 +365,23 @@ export default function Page() {
             </div>
           ) : (
             <div className="sticker rounded-chunk px-3 py-1.5 bg-paper text-right">
-              <div className="text-[10px] text-ink-faint uppercase tracking-wider font-semibold">not connected</div>
-              <div data-testid="wallet-address" className="font-mono text-xs text-ink">—</div>
+              <div className="text-[10px] text-ink-faint uppercase tracking-wider font-semibold">
+                not connected
+              </div>
+              <div data-testid="wallet-address" className="font-mono text-xs text-ink">
+                —
+              </div>
             </div>
           )}
         </header>
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-6">
           <div>
-            <Board players={view?.players ?? []} properties={view?.properties ?? {}} meAddress={account?.address ?? null} />
+            <Board
+              players={view?.players ?? []}
+              properties={view?.properties ?? {}}
+              meAddress={account?.address ?? null}
+            />
           </div>
 
           <aside className="space-y-4">
@@ -322,7 +390,8 @@ export default function Page() {
                 <div className="h-8 w-8 mx-auto animate-spin rounded-full border-4 border-grape border-t-transparent" />
                 <p className="text-ink-soft text-sm mt-3">Looking for your seat at the table…</p>
                 <p className="text-ink-faint text-[11px] mt-2">
-                  If no game is waiting for your wallet, start a fresh one — you'll be seated against the bots.
+                  If no game is waiting for your wallet, start a fresh one — you'll be seated
+                  against the bots.
                 </p>
                 <button
                   type="button"
@@ -339,8 +408,9 @@ export default function Page() {
             {phase === "lobby" && (
               <div className="sticker rounded-chunk bg-paper p-5 text-center">
                 <div className="text-sm text-ink-soft mb-3">
-                  Buy in to the pot — <b className="text-ink">{view?.fee} USDC</b>, a real x402 charge from <b className="text-ink">your</b> wallet to the
-                  Pot {short(view?.pot)}, bounded on-chain by your budget delegation.
+                  Buy in to the pot — <b className="text-ink">{view?.fee} USDC</b>, a real x402
+                  charge from <b className="text-ink">your</b> wallet to the Pot {short(view?.pot)},
+                  bounded on-chain by your budget delegation.
                 </div>
                 <button
                   data-testid="join-btn"
@@ -357,21 +427,30 @@ export default function Page() {
               <>
                 {/* players */}
                 <div className="sticker rounded-chunk bg-paper p-4">
-                  <div className="text-[11px] text-ink-faint uppercase tracking-wider mb-2 font-bold">Players · round {view.round}/{view.roundCap}</div>
+                  <div className="text-[11px] text-ink-faint uppercase tracking-wider mb-2 font-bold">
+                    Players · round {view.round}/{view.roundCap}
+                  </div>
                   <ul className="space-y-1.5" data-testid="players">
                     {view.players.map((p) => {
                       const isCur = view.currentTurn?.toLowerCase() === p.address.toLowerCase();
                       return (
-                        <li key={p.address} className={`flex items-center justify-between text-xs rounded-xl px-2 py-1.5 border-[2px] ${p.bankrupt ? "opacity-40 line-through border-ink/10 bg-paper-dark" : ""} ${isCur ? "border-grape/60 bg-grape/10" : "border-ink/10 bg-paper-deep"}`}>
+                        <li
+                          key={p.address}
+                          className={`flex items-center justify-between text-xs rounded-xl px-2 py-1.5 border-[2px] ${p.bankrupt ? "opacity-40 line-through border-ink/10 bg-paper-dark" : ""} ${isCur ? "border-grape/60 bg-grape/10" : "border-ink/10 bg-paper-deep"}`}
+                        >
                           <span className="flex items-center gap-2">
                             <Pawn color={tokenColorFor(view.players, p.address)} size={18} />
                             <span className="font-bold text-ink">{p.name}</span>
                             {isCur && <span className="text-[9px] text-grape font-bold">●</span>}
-                            {p.inJail && <span className="text-[9px] text-berry font-bold">JAIL</span>}
+                            {p.inJail && (
+                              <span className="text-[9px] text-berry font-bold">JAIL</span>
+                            )}
                           </span>
                           <span className="flex items-center gap-3">
                             <span className="font-mono text-ink font-semibold">${p.cash}</span>
-                            <span className="text-ink-faint text-[10px]">{p.properties.length}🏠</span>
+                            <span className="text-ink-faint text-[10px]">
+                              {p.properties.length}🏠
+                            </span>
                           </span>
                         </li>
                       );
@@ -382,7 +461,9 @@ export default function Page() {
                 {/* dice + actions */}
                 <div className="sticker rounded-chunk bg-paper p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="text-[11px] text-ink-faint uppercase tracking-wider font-bold">Onchain dice</div>
+                    <div className="text-[11px] text-ink-faint uppercase tracking-wider font-bold">
+                      Onchain dice
+                    </div>
                     <div className="text-[10px] text-ink-faint font-mono">on {space.name}</div>
                   </div>
                   <div className="flex items-center justify-center py-2">
@@ -390,35 +471,74 @@ export default function Page() {
                   </div>
 
                   <div className="mb-2 text-center text-[11px]">
-                    <span data-testid="turn-indicator" className={myTurn ? "text-grape font-extrabold" : "text-ink-faint"}>
-                      {phase === "done" ? "game over" : myTurn ? "your turn" : "waiting for opponents…"}
+                    <span
+                      data-testid="turn-indicator"
+                      className={myTurn ? "text-grape font-extrabold" : "text-ink-faint"}
+                    >
+                      {phase === "done"
+                        ? "game over"
+                        : myTurn
+                          ? "your turn"
+                          : "waiting for opponents…"}
                     </span>
                   </div>
 
                   {phase === "done" ? (
                     <div className="text-center text-ink-soft text-sm py-2">Game over.</div>
                   ) : !myTurn ? (
-                    <button disabled className="sticker w-full py-3 rounded-chunk bg-paper-deep text-ink-faint font-display font-extrabold opacity-50 cursor-not-allowed">Wait for your turn</button>
+                    <button
+                      disabled
+                      className="sticker w-full py-3 rounded-chunk bg-paper-deep text-ink-faint font-display font-extrabold opacity-50 cursor-not-allowed"
+                    >
+                      Wait for your turn
+                    </button>
                   ) : me?.inJail && !view.rolledThisTurn ? (
                     <div className="space-y-2">
-                      <button data-testid="payjail-btn" onClick={() => act("payJail")} disabled={busy} className="sticker sticker-lift sticker-press w-full py-2.5 rounded-chunk bg-amber text-ink font-display font-extrabold disabled:opacity-50">
+                      <button
+                        data-testid="payjail-btn"
+                        onClick={() => act("payJail")}
+                        disabled={busy}
+                        className="sticker sticker-lift sticker-press w-full py-2.5 rounded-chunk bg-amber text-ink font-display font-extrabold disabled:opacity-50"
+                      >
                         {me.getOutCards > 0 ? "Use Get-Out-of-Jail card" : "Pay $50 to leave jail"}
                       </button>
-                      <button data-testid="roll-btn" onClick={() => act("roll")} disabled={busy} className="sticker sticker-lift sticker-press w-full py-2.5 rounded-chunk bg-grape text-paper font-display font-extrabold disabled:opacity-50">
+                      <button
+                        data-testid="roll-btn"
+                        onClick={() => act("roll")}
+                        disabled={busy}
+                        className="sticker sticker-lift sticker-press w-full py-2.5 rounded-chunk bg-grape text-paper font-display font-extrabold disabled:opacity-50"
+                      >
                         {busy ? "Rolling…" : "Roll for doubles"}
                       </button>
                     </div>
                   ) : pending?.kind === "buy" ? (
                     <div className="space-y-2">
-                      <button data-testid="buy-btn" onClick={() => act("buy")} disabled={busy || (me?.cash ?? 0) < pending.price} className="sticker sticker-lift sticker-press w-full py-2.5 rounded-chunk bg-grape text-paper font-display font-extrabold disabled:opacity-50">
-                        {busy ? "Buying…" : `Buy ${BOARD[pending.spaceId].name} · $${pending.price}`}
+                      <button
+                        data-testid="buy-btn"
+                        onClick={() => act("buy")}
+                        disabled={busy || (me?.cash ?? 0) < pending.price}
+                        className="sticker sticker-lift sticker-press w-full py-2.5 rounded-chunk bg-grape text-paper font-display font-extrabold disabled:opacity-50"
+                      >
+                        {busy
+                          ? "Buying…"
+                          : `Buy ${BOARD[pending.spaceId].name} · $${pending.price}`}
                       </button>
-                      <button data-testid="decline-btn" onClick={() => act("decline")} disabled={busy} className="sticker sticker-lift sticker-press w-full py-2 rounded-chunk bg-paper-deep text-ink-soft font-display font-bold disabled:opacity-50">
+                      <button
+                        data-testid="decline-btn"
+                        onClick={() => act("decline")}
+                        disabled={busy}
+                        className="sticker sticker-lift sticker-press w-full py-2 rounded-chunk bg-paper-deep text-ink-soft font-display font-bold disabled:opacity-50"
+                      >
                         Decline
                       </button>
                     </div>
                   ) : !view.rolledThisTurn ? (
-                    <button data-testid="roll-btn" onClick={() => act("roll")} disabled={busy} className="sticker sticker-lift sticker-press w-full py-3 rounded-chunk bg-grape text-paper font-display font-extrabold disabled:opacity-50">
+                    <button
+                      data-testid="roll-btn"
+                      onClick={() => act("roll")}
+                      disabled={busy}
+                      className="sticker sticker-lift sticker-press w-full py-3 rounded-chunk bg-grape text-paper font-display font-extrabold disabled:opacity-50"
+                    >
                       {busy ? "Rolling onchain…" : "Roll dice"}
                     </button>
                   ) : (
@@ -426,13 +546,24 @@ export default function Page() {
                       {buildable.length > 0 && (
                         <div className="grid grid-cols-1 gap-1">
                           {buildable.map((sid) => (
-                            <button key={sid} data-testid={`build-${sid}`} onClick={() => act("build", sid)} disabled={busy} className="sticker sticker-lift sticker-press w-full py-2 rounded-chunk bg-grass text-ink font-display font-bold text-xs disabled:opacity-50">
+                            <button
+                              key={sid}
+                              data-testid={`build-${sid}`}
+                              onClick={() => act("build", sid)}
+                              disabled={busy}
+                              className="sticker sticker-lift sticker-press w-full py-2 rounded-chunk bg-grass text-ink font-display font-bold text-xs disabled:opacity-50"
+                            >
                               Build on {BOARD[sid].name} · ${BOARD[sid].houseCost}
                             </button>
                           ))}
                         </div>
                       )}
-                      <button data-testid="end-btn" onClick={() => act("end")} disabled={busy} className="sticker sticker-lift sticker-press w-full py-2.5 rounded-chunk bg-grape text-paper font-display font-extrabold disabled:opacity-50">
+                      <button
+                        data-testid="end-btn"
+                        onClick={() => act("end")}
+                        disabled={busy}
+                        className="sticker sticker-lift sticker-press w-full py-2.5 rounded-chunk bg-grape text-paper font-display font-extrabold disabled:opacity-50"
+                      >
                         {busy ? "…" : "End turn"}
                       </button>
                     </div>
@@ -443,37 +574,90 @@ export default function Page() {
 
             {paymentTx && (
               <div className="sticker rounded-chunk bg-paper p-4">
-                <div className="text-[11px] text-ink-faint uppercase tracking-wider mb-1 font-bold">Buy-in</div>
-                <div data-testid="payment-status" className="text-sm font-extrabold text-grape font-display">PAID · {view?.fee} USDC</div>
-                <a data-testid="payment-tx" className="text-xs font-mono break-all block text-grape/70 hover:text-grape underline underline-offset-2" href={`https://sepolia.basescan.org/tx/${paymentTx}`} target="_blank" rel="noreferrer">{paymentTx}</a>
+                <div className="text-[11px] text-ink-faint uppercase tracking-wider mb-1 font-bold">
+                  Buy-in
+                </div>
+                <div
+                  data-testid="payment-status"
+                  className="text-sm font-extrabold text-grape font-display"
+                >
+                  PAID · {view?.fee} USDC
+                </div>
+                <a
+                  data-testid="payment-tx"
+                  className="text-xs font-mono break-all block text-grape/70 hover:text-grape underline underline-offset-2"
+                  href={`https://sepolia.mantlescan.xyz/tx/${paymentTx}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {paymentTx}
+                </a>
               </div>
             )}
 
             {lastTx?.tx && (
               <div className="sticker rounded-chunk bg-paper p-4" data-testid="last-tx">
-                <div className="text-[11px] text-ink-faint uppercase tracking-wider mb-1 font-bold">Settled onchain</div>
+                <div className="text-[11px] text-ink-faint uppercase tracking-wider mb-1 font-bold">
+                  Settled onchain
+                </div>
                 <div className="text-sm text-ink font-semibold">{lastTx.text}</div>
-                <a className="text-xs font-mono break-all text-grape/70 hover:text-grape underline underline-offset-2" href={`https://sepolia.basescan.org/tx/${lastTx.tx}`} target="_blank" rel="noreferrer">{lastTx.tx}</a>
+                <a
+                  className="text-xs font-mono break-all text-grape/70 hover:text-grape underline underline-offset-2"
+                  href={`https://sepolia.mantlescan.xyz/tx/${lastTx.tx}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {lastTx.tx}
+                </a>
               </div>
             )}
 
             {view?.winner && (
-              <div data-testid="winner-banner" className="sticker rounded-chunk bg-grape p-4 text-center text-sm font-extrabold font-display text-paper">
+              <div
+                data-testid="winner-banner"
+                className="sticker rounded-chunk bg-grape p-4 text-center text-sm font-extrabold font-display text-paper"
+              >
                 WINNER {short(view.winner)} (last solvent)
                 {view.payoutTx && (
-                  <a data-testid="payout-tx" className="block font-mono text-[10px] font-normal break-all mt-1 text-paper/70 hover:text-paper underline underline-offset-2" href={`https://sepolia.basescan.org/tx/${view.payoutTx}`} target="_blank" rel="noreferrer">
+                  <a
+                    data-testid="payout-tx"
+                    className="block font-mono text-[10px] font-normal break-all mt-1 text-paper/70 hover:text-paper underline underline-offset-2"
+                    href={`https://sepolia.mantlescan.xyz/tx/${view.payoutTx}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {view.payoutTx}
                   </a>
                 )}
               </div>
             )}
 
-            {err && <div className="rounded-chunk p-3 bg-berry/10 border-[2px] border-berry/40 text-berry text-xs font-semibold" data-testid="error">{err}</div>}
+            {err && (
+              <div
+                className="rounded-chunk p-3 bg-berry/10 border-[2px] border-berry/40 text-berry text-xs font-semibold"
+                data-testid="error"
+              >
+                {err}
+              </div>
+            )}
 
             <div className="sticker rounded-chunk bg-paper p-4">
-              <div className="text-[11px] text-ink-faint uppercase tracking-wider mb-2 font-bold">Activity</div>
-              <ul className="space-y-1 max-h-56 overflow-auto text-[11px] text-ink-soft" data-testid="log">
-                {log.length === 0 ? <li className="text-ink-faint">No moves yet.</li> : log.map((l, i) => <li key={i} className="break-all">{linkifyTx(l, "text-grape underline underline-offset-2 hover:opacity-80")}</li>)}
+              <div className="text-[11px] text-ink-faint uppercase tracking-wider mb-2 font-bold">
+                Activity
+              </div>
+              <ul
+                className="space-y-1 max-h-56 overflow-auto text-[11px] text-ink-soft"
+                data-testid="log"
+              >
+                {log.length === 0 ? (
+                  <li className="text-ink-faint">No moves yet.</li>
+                ) : (
+                  log.map((l, i) => (
+                    <li key={i} className="break-all">
+                      {linkifyTx(l, "text-grape underline underline-offset-2 hover:opacity-80")}
+                    </li>
+                  ))
+                )}
               </ul>
             </div>
           </aside>

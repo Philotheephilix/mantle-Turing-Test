@@ -3,7 +3,7 @@
 **Register:** brand (the landing site IS the product; a visitor's impression is the deliverable).
 
 ## What it is
-A platform for **gasless onchain games on Base**, built on the Nexus engine SDK. A
+A platform for **gasless onchain games on Mantle**, built on the Nexus engine SDK. A
 player signs **one** ERC-7710 delegation when they join a room; every move after that
 is gasless (no wallet popup) and every USDC bet is bounded onchain by spend caps. The
 site hosts an in-built **games library** (UNO, Monopoly, more) served from Steamlink
@@ -13,7 +13,7 @@ itself. Today the library is a placeholder shell wired for porting real games in
 - **Players** — want to play real games for real stakes without crypto-wallet anxiety.
   Primary audience; the page leads with them. Primary CTA: **play the live demos**.
 - **Game developers** — install the SDK, define a game as data + Solidity, deploy to
-  Base. Secondary track lower on the page.
+  Mantle. Secondary track lower on the page.
 
 ## Voice
 Playful, tactile, confident, warm. Three physical-object words: **sunny, toy-like,

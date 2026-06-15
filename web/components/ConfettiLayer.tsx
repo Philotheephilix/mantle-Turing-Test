@@ -1,11 +1,18 @@
 "use client";
 
+import { CONFETTI_EVENT } from "@/lib/confetti";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { CONFETTI_EVENT } from "@/lib/confetti";
 
 type Burst = { id: number; x: number; y: number };
-type Bit = { dx: number; dy: number; rot: number; color: string; shape: "sq" | "tri" | "dot"; size: number };
+type Bit = {
+  dx: number;
+  dy: number;
+  rot: number;
+  color: string;
+  shape: "sq" | "tri" | "dot";
+  size: number;
+};
 
 const COLORS = [
   "oklch(0.66 0.2 30)", // coral

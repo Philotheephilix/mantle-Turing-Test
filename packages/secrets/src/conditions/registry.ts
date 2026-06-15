@@ -3,7 +3,7 @@
  *
  * Developers pick a policy by name instead of hand-writing access-control
  * conditions; the registry expands the name → `AccessCondition[]`, substitutes
- * dynamic context variables, and pins `chain` to a Base value. Custom policies
+ * dynamic context variables, and pins `chain` to a Mantle value. Custom policies
  * can be registered and are validated at registration time.
  */
 
@@ -24,17 +24,17 @@ export type PolicyContext = {
   roundId?: string;
   invoiceId?: string;
   deadline?: string;
-  /** Which Base chain to pin conditions to. Defaults to "base". */
+  /** Which Mantle chain to pin conditions to. Defaults to "mantle". */
   chain?: SecretsChain;
 };
 
-/** A policy template: a pure function from context to Base-only conditions. */
+/** A policy template: a pure function from context to Mantle-only conditions. */
 export type PolicyTemplate = (ctx: PolicyContext) => AccessCondition[];
 
 const VALID_COMPARATORS: ReadonlySet<Comparator> = new Set(["=", ">", ">=", "<", "<=", "!="]);
 
 function chainOf(ctx: PolicyContext): SecretsChain {
-  return ctx.chain ?? "base";
+  return ctx.chain ?? "mantle";
 }
 
 /**
@@ -43,7 +43,7 @@ function chainOf(ctx: PolicyContext): SecretsChain {
  * - `only-owner` — only the owning player's address can decrypt.
  * - `reveal-after-round-end` — anyone may decrypt once the round has ended.
  * - `decrypt-after-payment-confirmed` — decrypt only after a payment settled on
- *   Base (x402 tie-in, Phase 07).
+ *   Mantle (x402 tie-in, Phase 07).
  */
 export const BUILTIN_POLICIES: Record<string, PolicyTemplate> = {
   "only-owner": (ctx) => [
@@ -94,7 +94,7 @@ const KNOWN_CONTEXT_KEYS: ReadonlySet<string> = new Set<keyof PolicyContext>([
 
 /**
  * Validate that an expanded condition set honors the conventions:
- * every clause is Base-only and every `returns` is well-formed. Throws
+ * every clause is Mantle-only and every `returns` is well-formed. Throws
  * `NexusError("INVALID_CONFIG")` otherwise.
  */
 export function assertConditionsValid(conditions: AccessCondition[]): void {
@@ -102,10 +102,10 @@ export function assertConditionsValid(conditions: AccessCondition[]): void {
     throw new NexusError("INVALID_CONFIG", "policy produced no conditions");
   }
   for (const c of conditions) {
-    if (c.chain !== "base" && c.chain !== "base-sepolia") {
+    if (c.chain !== "mantle" && c.chain !== "mantle-sepolia") {
       throw new NexusError(
         "INVALID_CONFIG",
-        `non-Base condition rejected (chain=${String(c.chain)}); Nexus is Base-only`,
+        `non-Mantle condition rejected (chain=${String(c.chain)}); Nexus is Mantle-only`,
       );
     }
     if (typeof c.method !== "string" || c.method.length === 0) {
@@ -184,7 +184,7 @@ export class PolicyRegistry {
       roundId: ":roundId",
       invoiceId: ":invoiceId",
       deadline: ":deadline",
-      chain: "base",
+      chain: "mantle",
     };
     assertConditionsValid(build(probeCtx));
     this.templates.set(name, build);

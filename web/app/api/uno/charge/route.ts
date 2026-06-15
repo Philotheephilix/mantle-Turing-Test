@@ -1,10 +1,10 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import type { SignedDelegation } from "@steamlink/core";
-import type { Address } from "@steamlink/types";
 import { charge, chargeGrant } from "@/lib/uno/game-backend";
 import { jsonResponse } from "@/lib/uno/json-response";
+import type { SignedDelegation } from "@steamlink/core";
+import type { Address } from "@steamlink/types";
 
 /**
  * /api/charge — settle the entry fee. Two rails:
@@ -28,7 +28,10 @@ export async function POST(req: Request) {
     return jsonResponse(res, res.ok ? 200 : 500);
   }
   if (!body.signedBudget) {
-    return jsonResponse({ ok: false, error: "player + signedBudget (or grant:true) required" }, 400);
+    return jsonResponse(
+      { ok: false, error: "player + signedBudget (or grant:true) required" },
+      400,
+    );
   }
   const res = await charge(body.player, body.signedBudget);
   return jsonResponse(res, res.ok ? 200 : 500);

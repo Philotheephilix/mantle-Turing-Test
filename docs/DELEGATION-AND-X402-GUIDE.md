@@ -159,7 +159,7 @@ export async function signGameplayDelegation(player /* viem account-like */, roo
     budget:   { token: "USDC", totalCap: "0", perActionCap: "0", allowedRecipients: [] },
   };
   return signDelegation(player, {
-    chainId: 84532, delegationManager: addresses.delegationManager,
+    chainId: 5003, delegationManager: addresses.delegationManager,
     delegate: RELAYER_ADDRESS,                                   // relayer = the only redeemer
     caveats: buildGameplayCaveats(cfg, addresses, roomId),
     salt: saltFor(player.address), maxRedemptions: 200n,
@@ -173,7 +173,7 @@ export async function signBudgetDelegation(player, pot, perActionCap, totalCap) 
     budget:   { token: "USDC", perActionCap, totalCap, allowedRecipients: [pot] },
   };
   return signDelegation(player, {
-    chainId: 84532, delegationManager: addresses.delegationManager,
+    chainId: 5003, delegationManager: addresses.delegationManager,
     delegate: RELAYER_ADDRESS,
     caveats: buildBudgetCaveats(cfg, addresses),
     salt: saltFor(player.address), maxRedemptions: 4n,
@@ -204,7 +204,7 @@ unbounded-spend path by construction.
 import { monetize } from "@your/server";
 
 app.use("/api/premium", monetize({
-  price: "0.10", token: "USDC", chain: "base",
+  price: "0.10", token: "USDC", chain: "mantle",
   recipient: POT_ADDRESS,
   facilitator: "nexus",            // default DelegationFacilitator
 }));

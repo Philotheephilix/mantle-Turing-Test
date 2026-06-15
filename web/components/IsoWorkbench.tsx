@@ -1,25 +1,57 @@
-import { Cuboid, INK, project, pts, U, type Faces, type P } from "./iso/primitives";
+import { Cuboid, type Faces, INK, type P, U, project, pts } from "./iso/primitives";
 
 /**
  * The developer hero scene: an isometric workbench. A terminal slab streaming
- * code, a chain of Base "blocks" climbing up, a coral deploy crate, cogs, and
+ * code, a chain of Mantle "blocks" climbing up, a coral deploy crate, cogs, and
  * floating code glyphs. Same dimetric projection as the gamer tabletop so the
  * two worlds feel like one universe.
  */
 
 const C = {
-  board: { top: "oklch(0.94 0.03 82)", right: "oklch(0.85 0.04 75)", left: "oklch(0.77 0.05 70)" } as Faces,
-  term: { top: "oklch(0.32 0.02 55)", right: "oklch(0.27 0.02 55)", left: "oklch(0.22 0.02 55)" } as Faces,
-  block: { top: "oklch(0.72 0.13 245)", right: "oklch(0.62 0.14 245)", left: "oklch(0.52 0.13 244)" } as Faces,
-  crate: { top: "oklch(0.7 0.2 30)", right: "oklch(0.6 0.19 29)", left: "oklch(0.5 0.17 28)" } as Faces,
-  cog: { top: "oklch(0.66 0.15 300)", right: "oklch(0.56 0.15 300)", left: "oklch(0.47 0.13 299)" } as Faces,
+  board: {
+    top: "oklch(0.94 0.03 82)",
+    right: "oklch(0.85 0.04 75)",
+    left: "oklch(0.77 0.05 70)",
+  } as Faces,
+  term: {
+    top: "oklch(0.32 0.02 55)",
+    right: "oklch(0.27 0.02 55)",
+    left: "oklch(0.22 0.02 55)",
+  } as Faces,
+  block: {
+    top: "oklch(0.72 0.13 245)",
+    right: "oklch(0.62 0.14 245)",
+    left: "oklch(0.52 0.13 244)",
+  } as Faces,
+  crate: {
+    top: "oklch(0.7 0.2 30)",
+    right: "oklch(0.6 0.19 29)",
+    left: "oklch(0.5 0.17 28)",
+  } as Faces,
+  cog: {
+    top: "oklch(0.66 0.15 300)",
+    right: "oklch(0.56 0.15 300)",
+    left: "oklch(0.47 0.13 299)",
+  } as Faces,
 };
 
 /** A flat colored quad lying on the top plane at height z. */
-function Plate({ x, y, w, d, z, fill }: { x: number; y: number; w: number; d: number; z: number; fill: string }) {
+function Plate({
+  x,
+  y,
+  w,
+  d,
+  z,
+  fill,
+}: { x: number; y: number; w: number; d: number; z: number; fill: string }) {
   return (
     <polygon
-      points={pts(project(x, y, z), project(x + w, y, z), project(x + w, y + d, z), project(x, y + d, z))}
+      points={pts(
+        project(x, y, z),
+        project(x + w, y, z),
+        project(x + w, y + d, z),
+        project(x, y + d, z),
+      )}
       fill={fill}
     />
   );
@@ -60,7 +92,7 @@ export function IsoWorkbench({ className = "" }: { className?: string }) {
       viewBox="-275 -150 550 330"
       className={className}
       role="img"
-      aria-label="An isometric developer workbench: a terminal streaming code, a chain of Base blocks, a deploy crate, cogs and floating code glyphs."
+      aria-label="An isometric developer workbench: a terminal streaming code, a chain of Mantle blocks, a deploy crate, cogs and floating code glyphs."
     >
       <ellipse cx="0" cy="140" rx="225" ry="42" fill="oklch(0.245 0.03 55 / 0.12)" />
 
@@ -79,14 +111,31 @@ export function IsoWorkbench({ className = "" }: { className?: string }) {
         ))}
       </g>
 
-      {/* chain of Base blocks climbing up-right */}
+      {/* chain of Mantle blocks climbing up-right */}
       <g className="float-a">
         {[0, 1, 2].map((i) => (
           <g key={i}>
-            <Cuboid x={1.3 + i * 0.25} y={-2.4} w={1.4} d={1.4} h={14} z={BZ + i * 14} faces={C.block} />
+            <Cuboid
+              x={1.3 + i * 0.25}
+              y={-2.4}
+              w={1.4}
+              d={1.4}
+              h={14}
+              z={BZ + i * 14}
+              faces={C.block}
+            />
             {(() => {
               const [sx, sy] = project(2.0 + i * 0.25, -1.7, BZ + (i + 1) * 14);
-              return <circle cx={sx} cy={sy} r={4.5} fill="none" stroke="oklch(0.95 0.02 245)" strokeWidth={2.4} />;
+              return (
+                <circle
+                  cx={sx}
+                  cy={sy}
+                  r={4.5}
+                  fill="none"
+                  stroke="oklch(0.95 0.02 245)"
+                  strokeWidth={2.4}
+                />
+              );
             })()}
           </g>
         ))}
@@ -120,12 +169,22 @@ export function IsoWorkbench({ className = "" }: { className?: string }) {
         const g1 = project(-3.4, 0.4, BZ + 70) as P;
         const g2 = project(3.5, 1.2, BZ + 50) as P;
         const g3 = project(0.2, -3.6, BZ + 64) as P;
-        const style = { fontFamily: "ui-monospace, monospace", fontWeight: 800 as const, fill: INK };
+        const style = {
+          fontFamily: "ui-monospace, monospace",
+          fontWeight: 800 as const,
+          fill: INK,
+        };
         return (
           <>
-            <text className="float-a" x={g1[0]} y={g1[1]} fontSize={26} {...style}>{"{ }"}</text>
-            <text className="float-b" x={g2[0]} y={g2[1]} fontSize={22} {...style}>{"</>"}</text>
-            <text className="float-c" x={g3[0]} y={g3[1]} fontSize={24} {...style}>Σ</text>
+            <text className="float-a" x={g1[0]} y={g1[1]} fontSize={26} {...style}>
+              {"{ }"}
+            </text>
+            <text className="float-b" x={g2[0]} y={g2[1]} fontSize={22} {...style}>
+              {"</>"}
+            </text>
+            <text className="float-c" x={g3[0]} y={g3[1]} fontSize={24} {...style}>
+              Σ
+            </text>
           </>
         );
       })()}

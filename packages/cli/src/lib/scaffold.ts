@@ -110,10 +110,10 @@ const NEXUS_CONFIG_TS = `import { game } from "./game/game.js";
 
 /**
  * Nexus project config. Read by the CLI (\`deploy\`, \`dev\`, \`migrate\`, \`fork\`)
- * and the backend. Nexus is Base-only by construction.
+ * and the backend. Nexus is Mantle-only by construction.
  */
 export const config = {
-  chain: "base" as const,
+  chain: "mantle" as const,
   /** Set after \`nexus deploy\` (or via WORLD_ADDRESS env). */
   world: process.env.WORLD_ADDRESS as \`0x\${string}\` | undefined,
   /** Where codegen writes the manifest + Solidity table glue. */
@@ -136,7 +136,7 @@ const PACKAGE_JSON = (name: string) =>
       scripts: {
         codegen: "nexus codegen",
         dev: "nexus dev",
-        deploy: "nexus deploy --network base",
+        deploy: "nexus deploy --network mantle",
       },
       dependencies: {
         "@nexus/core": "workspace:*",
@@ -180,14 +180,14 @@ const ENV_EXAMPLE = `# Filled in for deploy / prod serve only. \`nexus dev\` nee
 WORLD_ADDRESS=
 # Funded deployer key used by \`nexus deploy\` (never your relayer/Lit secret).
 PRIVATE_KEY=
-# Base RPC (defaults to the public endpoint if unset).
-BASE_RPC_URL=
-BASE_SEPOLIA_RPC_URL=
+# Mantle RPC (defaults to the public endpoint if unset).
+MANTLE_RPC_URL=
+MANTLE_SEPOLIA_RPC_URL=
 `;
 
 const README_MD = (name: string) => `# ${name}
 
-A Nexus game — fully onchain, turn-based, on Base. Built with the
+A Nexus game — fully onchain, turn-based, on Mantle. Built with the
 [\`@nexus/cli\`](https://github.com/) scaffolder.
 
 ## Quick start
@@ -195,14 +195,14 @@ A Nexus game — fully onchain, turn-based, on Base. Built with the
 \`\`\`bash
 nexus codegen        # generate Solidity table glue + the deploy manifest
 nexus dev --dry-run  # see the local-stack plan (anvil fork + deploy)
-nexus dev            # boot a local Base fork, deploy, mock adapters (zero credentials)
+nexus dev            # boot a local Mantle fork, deploy, mock adapters (zero credentials)
 \`\`\`
 
 ## Ship it
 
 \`\`\`bash
-# requires PRIVATE_KEY (funded deployer) + a Base RPC in .env
-nexus deploy --network base-sepolia
+# requires PRIVATE_KEY (funded deployer) + a Mantle RPC in .env
+nexus deploy --network mantle-sepolia
 \`\`\`
 
 ## Layout

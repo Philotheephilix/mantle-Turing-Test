@@ -18,7 +18,7 @@ import {PerActionCapEnforcer} from "../src/enforcers/PerActionCapEnforcer.sol";
  *         registers their tables/systems, wires access control, and deploys the
  *         five caveat enforcers. Phase 11's CLI generalizes this from a manifest.
  *
- * @dev    The trusted forwarder (the canonical MetaMask DelegationManager on Base)
+ * @dev    The trusted forwarder (the canonical MetaMask DelegationManager on Mantle)
  *         is passed via the FORWARDER env var. See src/delegation/IDelegation.sol.
  */
 contract DeployWorld is Script {

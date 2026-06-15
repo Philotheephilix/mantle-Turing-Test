@@ -127,7 +127,7 @@ Punchy, tactile interactions (all `prefers-reduced-motion` aware):
 - **GaslessFlow**: an SVG band where a coin travels a path via native
   `<animateMotion><mpath/></animateMotion>`, over a marching-ants dashed line
   (`@keyframes ants` on stroke-dashoffset) with a wiggling "0 GAS" badge. Themed
-  per audience (coral→"You win" coin / sky→"Base settles" blocks). NOTE: keep the
+  per audience (coral→"You win" coin / sky→"Mantle settles" blocks). NOTE: keep the
   CSS-animated rotation on a *separate inner `<g>`* from the positioning `transform`
   attribute — CSS transform overrides the attribute and the element jumps to origin.
 - **SquiggleUnderline**: hand-drawn underline that strokes itself in via

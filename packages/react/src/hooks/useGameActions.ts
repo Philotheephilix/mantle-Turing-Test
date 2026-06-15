@@ -217,5 +217,5 @@ export function useGameActions(): UseGameActionsResult {
 }
 
 function chainId(chain: string): number {
-  return chain === "base" ? 8453 : 84532;
+  return chain === "mantle" ? 5000 : 5003;
 }

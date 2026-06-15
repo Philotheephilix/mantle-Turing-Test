@@ -34,8 +34,8 @@ async function main() {
   log.info(`ETH balance: ${formatEther(bal)}`);
   if (bal === 0n) {
     log.fail("Primary account has 0 ETH — fund it for gas before running live tests.");
-    if (env.chainKey === "base-sepolia") {
-      log.info("Base Sepolia faucet: https://docs.base.org/tools/network-faucets");
+    if (env.chainKey === "mantle-sepolia") {
+      log.info("Mantle Sepolia faucet: https://faucet.sepolia.mantle.xyz");
     }
     process.exit(1);
   }

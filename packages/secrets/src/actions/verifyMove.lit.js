@@ -48,7 +48,7 @@ const go = async () => {
     accessControlConditions: conditions,
     ciphertext,
     dataToEncryptHash: dataHash,
-    chain: "base",
+    chain: "mantleSepoliaTestnet",
     authSig: null,
     sessionSigs,
   });

@@ -8,7 +8,7 @@ import type { Address, Hex } from "@nexus/types";
  */
 
 export interface RelayerCapabilities {
-  /** Chains the relayer serves. Nexus is Base-only, so this is ["base"] or ["base-sepolia"]. */
+  /** Chains the relayer serves. Nexus is Mantle-only, so this is ["mantle"] or ["mantle-sepolia"]. */
   chains: string[];
   /** Accepted payment/fee tokens, by symbol -> address. Never hardcode; read from here. */
   tokens: Record<string, Address>;

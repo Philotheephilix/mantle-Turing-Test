@@ -19,6 +19,19 @@ abstract contract CaveatEnforcerBase is ICaveatEnforcer {
     ///         header (target 20 + value 32 = 52 bytes).
     error InvalidExecutionCalldata();
 
+    /// @notice A budget/recipient caveat saw a non-zero native `value`. Nexus
+    ///         redemptions are token-only; the manager already rejects non-zero
+    ///         value globally, and the spend enforcers reject it again as
+    ///         defense-in-depth so an ETH leg can never bypass a USDC cap.
+    error NonZeroValueUnsupported();
+
+    /// @dev Reverts unless the execution carries zero native value. Budget and
+    ///      recipient enforcers call this so their caps bound the full execution,
+    ///      not just the ERC-20 callData leg.
+    function _requireNoValue(uint256 value) internal pure {
+        if (value != 0) revert NonZeroValueUnsupported();
+    }
+
     /// @inheritdoc ICaveatEnforcer
     function afterHook(
         bytes calldata,

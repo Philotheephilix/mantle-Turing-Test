@@ -6,7 +6,7 @@ pragma solidity ^0.8.23;
  * @notice These are MINIMAL LOCAL interfaces that match the MetaMask Delegation
  *         Framework (ERC-7710) signatures. We define them locally rather than
  *         vendoring the full framework so the package compiles deterministically
- *         and stays Base-only and small. They are *signature-compatible* with the
+ *         and stays Mantle-only and small. They are *signature-compatible* with the
  *         canonical framework: enforcers written against `ICaveatEnforcer` here
  *         are callable by a framework-style manager.
  *

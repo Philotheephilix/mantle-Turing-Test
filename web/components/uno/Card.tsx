@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  SKIP,
-  REVERSE,
-  DRAW_TWO,
-  WILD,
-  WILD_DRAW_FOUR,
-  type UnoCard,
-} from "@/lib/uno/uno-rules";
+import { DRAW_TWO, REVERSE, SKIP, type UnoCard, WILD, WILD_DRAW_FOUR } from "@/lib/uno/uno-rules";
 
 export type { UnoCard };
 
@@ -18,7 +11,13 @@ const COLOR_HEX: Record<number, string> = {
   4: "#ffcc00", // yellow
 };
 
-const COLOR_NAME: Record<number, string> = { 0: "wild", 1: "red", 2: "green", 3: "blue", 4: "yellow" };
+const COLOR_NAME: Record<number, string> = {
+  0: "wild",
+  1: "red",
+  2: "green",
+  3: "blue",
+  4: "yellow",
+};
 
 export function colorName(c: number): string {
   return COLOR_NAME[c] ?? "—";
@@ -72,7 +71,7 @@ export function Card({
   testid?: string;
 }) {
   const wild = isWild(card);
-  const bg = wild ? "#1e1b4b" : COLOR_HEX[card.color] ?? "#3a3a3a";
+  const bg = wild ? "#1e1b4b" : (COLOR_HEX[card.color] ?? "#3a3a3a");
   const dim = small ? "w-16 h-24 text-xl" : "w-24 h-36 text-4xl";
   const accent = card.color === 4 ? "#1a1a1a" : "#ffffff";
   const g = glyphs(card);
@@ -89,14 +88,18 @@ export function Card({
       style={{ background: bg, color: accent }}
       aria-label={`${colorName(card.color)} ${g.aria}`}
     >
-      <span className="absolute top-1.5 left-2 text-xs font-bold font-display opacity-95">{g.corner}</span>
+      <span className="absolute top-1.5 left-2 text-xs font-bold font-display opacity-95">
+        {g.corner}
+      </span>
       <span
         className="absolute inset-0 flex items-center justify-center font-extrabold font-display"
         style={{ textShadow: wild ? "0 0 12px rgba(255,255,255,0.4)" : "0 2px 0 rgba(0,0,0,0.22)" }}
       >
         {g.center}
       </span>
-      <span className="absolute bottom-1.5 right-2 text-xs font-bold font-display rotate-180 opacity-95">{g.corner}</span>
+      <span className="absolute bottom-1.5 right-2 text-xs font-bold font-display rotate-180 opacity-95">
+        {g.corner}
+      </span>
       <span className="absolute inset-x-2 top-2 h-1/3 rounded-full bg-white/20 blur-md pointer-events-none" />
     </button>
   );

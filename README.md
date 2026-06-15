@@ -1,17 +1,17 @@
 # SteamLink
 
 [![Docs](https://img.shields.io/badge/Docs-steamlink.vercel.app%2Fdocs-e4572e?logo=readthedocs&logoColor=white&style=for-the-badge)](https://steamlink.vercel.app/docs)
-[![Base Sepolia](https://img.shields.io/badge/Base-Sepolia%C2%B784532-0052ff?logo=coinbase&logoColor=white&style=for-the-badge)](https://sepolia.basescan.org)
+[![Mantle Sepolia](https://img.shields.io/badge/Mantle-Sepolia%C2%B75003-0052ff?style=for-the-badge)](https://sepolia.mantlescan.xyz)
 [![npm @steamlink/core](https://img.shields.io/npm/v/@steamlink/core?label=%40steamlink%2Fcore&style=for-the-badge&color=cb3837&logo=npm)](https://www.npmjs.com/package/@steamlink/core)
 
-**Fully onchain, turn-based games on Base — one signature, then every move is gasless and every
+**Fully onchain, turn-based games on Mantle — one signature, then every move is gasless and every
 payment is bounded on-chain.** SteamLink is a game-engine SDK (engine name: *Nexus*). A player signs
 **one** ERC-7710 delegation when they join a room; a relayer redeems that single signature for
 everything after — gasless moves (no wallet popups) and x402 stablecoin payments capped on-chain by
 caveats. You describe a game as **data** (tables) and **logic** (Solidity systems); the SDK handles
 the cryptography, relaying, randomness, sealed state, and settlement.
 
-Live on Base Sepolia with real transactions; the architecture is mainnet-ready.
+Live on Mantle Sepolia with real transactions; the architecture is mainnet-ready.
 
 ---
 
@@ -97,7 +97,7 @@ import { monetize } from "@steamlink/server";
 const app = express();
 app.post(
   "/api/premium-hint",
-  monetize({ price: "0.10", token: "USDC", chain: "base", recipient: POT_ADDRESS, facilitator: "nexus" }),
+  monetize({ price: "0.10", token: "USDC", chain: "mantle", recipient: POT_ADDRESS, facilitator: "nexus" }),
   (req, res) => res.json({ hint: "play the center", settlement: req.settlement }),
 );
 ```
@@ -105,33 +105,39 @@ app.post(
 That's the whole surface: **`defineGame`** declares the game, **`move`** redeems the single
 delegation for a gasless action, **`monetize`** charges bounded USDC over x402.
 
-## Live deployments (Base Sepolia · chain 84532)
+## Live deployments (Mantle Sepolia · chain 5003)
 
-Two reference games are deployed and playable end to end (buy-in → gasless play → onchain winner →
-pot payout). Click any address to open it on Basescan.
-
-**UNO** — full 108-card ruleset:
-
-| Contract | Address |
-|---|---|
-| DelegationManager | [0x4a98…fa7f](https://sepolia.basescan.org/address/0x4a984AA64eA35817401C020Bc69E39d5A3d5fa7f) |
-| World | [0xd664…7D4a](https://sepolia.basescan.org/address/0xd664e99581699d5Af07C45BB6D417DFa2fb17D4a) |
-| Pot | [0xae0f…7C3b](https://sepolia.basescan.org/address/0xae0f54144FBF14992041842e24EdA0eAC9567C3b) |
-| RandomnessCoordinator | [0x6550…c18b](https://sepolia.basescan.org/address/0x6550643c46782d44dF196af227E98C3273Abc18b) |
-
-**Monopoly** — full 40-space ruleset:
+The shared Nexus stack is **live on Mantle Sepolia** (explorer
+[sepolia.mantlescan.xyz](https://sepolia.mantlescan.xyz), RPC `https://rpc.sepolia.mantle.xyz`).
+Click any address to open it on Mantlescan.
 
 | Contract | Address |
 |---|---|
-| DelegationManager | [0x9C1d…8eD5](https://sepolia.basescan.org/address/0x9C1d2B181D9D242cCC0C86B14dADe8153E688eD5) |
-| World | [0x0340…8f9C](https://sepolia.basescan.org/address/0x034096F54d1f09aB5dF7967f0E7B06Ea44ef8f9C) |
-| Pot | [0x8710…9Ad7](https://sepolia.basescan.org/address/0x87109EAe342Ee671028d6259fDd0A8Aa7c729Ad7) |
-| RandomnessCoordinator | [0xA3A5…ad63](https://sepolia.basescan.org/address/0xA3A54D08F0F776E5Ad51b53187956242024Cad63) |
+| World | [0x561f…6659](https://sepolia.mantlescan.xyz/address/0x561f9370EBf532b8f6002B07a501C820b7f16659) |
+| NexusDelegationManager | [0xD716…1Eaf](https://sepolia.mantlescan.xyz/address/0xD716d600a63bf08100b2544935AD6D020f0F1Eaf) |
+| TurnManager | [0xc885…82e9](https://sepolia.mantlescan.xyz/address/0xc8856f9eD594461f50BB673AD5B2933AEc9882e9) |
+| Pot | [0x253B…416f](https://sepolia.mantlescan.xyz/address/0x253B95Bc8f2c799449639AfF0858b4c0E9f0416f) |
+| RandomnessCoordinator | [0x56a9…94CC](https://sepolia.mantlescan.xyz/address/0x56a9ABe6AA0F575ccB36f5DE3F1f9f9c3F8E94CC) |
+| TestUSDC (budget token, 6dp) | [0x189B…0cde](https://sepolia.mantlescan.xyz/address/0x189BdF9e9e4FfE4AC0e8eD0479b158843Bcd0cde) |
 
-Shared: the payment token is Circle's Base-Sepolia USDC
-[0x036C…CF7e](https://sepolia.basescan.org/address/0x036CbD53842c5426634e7929541eC2318f3dCF7e). The
-optional MetaMask ERC-7715 rail settles through MetaMask's canonical DelegationManager
-[0xdb9B…7dB3](https://sepolia.basescan.org/address/0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3).
+The seven caveat enforcers (turn-bound, system-allowlist, timestamp, limited-calls, per-action cap,
+ERC-20 transfer-amount, allowed-recipients) are recorded in
+`web/lib/<game>/deployments/mantle-sepolia.json`. The relayer EOA is
+[0xA332…55bD](https://sepolia.mantlescan.xyz/address/0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD).
+
+> Mantle Sepolia has no canonical Circle USDC, so the stack deploys its own 6-decimals **TestUSDC**
+> as the budget/charge token. The per-game system contracts (`unoGame` / `monopolyGame`) are not in
+> this repo; deploy them and paste the address into the matching `deployments/mantle-sepolia.json`.
+
+To (re)deploy the core stack to Mantle Sepolia:
+
+```bash
+cd packages/contracts && pnpm setup              # one-time: forge install deps
+PLAYER=0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD ROOM_ID=1 \
+  forge script script/DeployFull.s.sol:DeployFull \
+  --rpc-url https://rpc.sepolia.mantle.xyz --private-key $PRIVATE_KEY \
+  --broadcast --legacy --gas-estimate-multiplier 200 --slow   # writes deployments/5003.json
+```
 
 ## Run a reference game locally
 
@@ -160,8 +166,8 @@ The short version:
 1. **Fork & branch** — fork this repo, `git checkout -b feat/<your-game>`.
 2. **Define** — `defineGame(...)` your tables + Solidity system paths in `web/lib/<game>/game.ts`.
 3. **Write systems** — real Solidity under `packages/contracts/src/systems/`; `forge test` them.
-4. **Deploy** — deploy the World + systems to Base Sepolia; record addresses in
-   `web/lib/<game>/deployments/base-sepolia.json`.
+4. **Deploy** — deploy the World + systems to Mantle Sepolia; record addresses in
+   `web/lib/<game>/deployments/mantle-sepolia.json`.
 5. **Wire the backend** — namespaced handlers in `web/app/api/<game>/*`, booted from
    `web/instrumentation.ts`.
 6. **Add the UI** — `web/app/play/<game>/page.tsx` on the shared `useWallet()` provider, with every
@@ -176,7 +182,7 @@ Push your branch and open a PR against `main`:
 ```bash
 git push origin feat/<your-game>
 gh pr create --base main --title "feat: add <Your Game>" \
-  --body "New in-tree game. Deployed to Base Sepolia. One delegation, gasless moves, x402 entry."
+  --body "New in-tree game. Deployed to Mantle Sepolia. One delegation, gasless moves, x402 entry."
 ```
 
 Or from the compare view:

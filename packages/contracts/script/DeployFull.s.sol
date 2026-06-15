@@ -17,6 +17,7 @@ import {ERC20TransferAmountEnforcer} from "../src/enforcers/ERC20TransferAmountE
 import {AllowedRecipientsEnforcer} from "../src/enforcers/AllowedRecipientsEnforcer.sol";
 import {TestUSDC} from "../src/mocks/TestUSDC.sol";
 import {Pot} from "../src/Pot.sol";
+import {RandomnessCoordinator} from "../src/randomness/RandomnessCoordinator.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
@@ -75,10 +76,15 @@ contract DeployFull is Script {
 
         // ── LOCAL x402 budget rails: a real 6-decimals TestUSDC + a Pot to receive
         //    charges. The deployer (the payer/relayer on anvil) is minted a balance.
-        //    On Base Sepolia the TS suite ignores `testUsdc` and uses canonical USDC.
+        //    On Mantle Sepolia the TS suite ignores `testUsdc` and uses canonical USDC.
         TestUSDC testUsdc = new TestUSDC();
         Pot pot = new Pot(IERC20(address(testUsdc)), msg.sender, msg.sender, 0);
         testUsdc.mint(msg.sender, 1000e6);
+
+        // ── On-chain randomness coordinator (commit-reveal + fast tiers). Games
+        //    read this for shuffles/dice; recorded so deployments/<chainid>.json is
+        //    complete and downstream tooling can verify the full stack.
+        RandomnessCoordinator randomness = new RandomnessCoordinator();
 
         vm.stopBroadcast();
 
@@ -101,6 +107,7 @@ contract DeployFull is Script {
         vm.serializeBytes32(root, "counterGameSystemId", bytes32("CounterGame"));
         vm.serializeAddress(root, "testUsdc", address(testUsdc));
         vm.serializeAddress(root, "pot", address(pot));
+        vm.serializeAddress(root, "randomness", address(randomness));
         vm.serializeUint(root, "roomId", roomId);
         string memory out = vm.serializeString(root, "enforcers", enforcersJson);
 

@@ -46,7 +46,7 @@ export const GAMES: GameEntry[] = [
     monogram: "UN",
     tagline: "The full 108-card deck, dealt onchain.",
     description:
-      "The official UNO ruleset, settled on Base. The shuffle is seeded by real onchain randomness, hands stay sealed until they're yours, and the 1 USDC entry is a real x402 payment. Empty your hand, win the pot.",
+      "The official UNO ruleset, settled on Mantle. The shuffle is seeded by real onchain randomness, hands stay sealed until they're yours, and the 1 USDC entry is a real x402 payment. Empty your hand, win the pot.",
     status: "live",
     players: "2–4",
     tags: ["Cards", "Sealed hands", "x402 entry"],
@@ -58,7 +58,7 @@ export const GAMES: GameEntry[] = [
     monogram: "MO",
     tagline: "Full US ruleset, played to a real bankruptcy.",
     description:
-      "The complete standard Monopoly board on Base. Every debit, buy, rent, tax, house, fine, is a real USDC charge bounded onchain by your spend caps. The last player solvent takes the pot. No fake win.",
+      "The complete standard Monopoly board on Mantle. Every debit, buy, rent, tax, house, fine, is a real USDC charge bounded onchain by your spend caps. The last player solvent takes the pot. No fake win.",
     status: "live",
     players: "2–4",
     tags: ["Board", "Real USDC", "Spend caps"],
@@ -70,10 +70,10 @@ export const GAMES: GameEntry[] = [
     monogram: "+",
     tagline: "Define it as data, ship it gasless.",
     description:
-      "Describe a game as tables and Solidity logic, deploy to Base with one command, and it lands in the library, gasless from the first move. The shelf is open.",
+      "Describe a game as tables and Solidity logic, deploy to Mantle with one command, and it lands in the library, gasless from the first move. The shelf is open.",
     status: "coming-soon",
     players: "—",
-    tags: ["SDK", "Base", "Open"],
+    tags: ["SDK", "Mantle", "Open"],
     accent: "sky",
   },
 ];

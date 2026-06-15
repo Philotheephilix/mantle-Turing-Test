@@ -11,11 +11,20 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  *         on settle the winner is paid the balance minus a rake (bps) credited to
  *         the rake collector. Settlement is admin-keyless: only the registered
  *         settle authority (the World / a registered settle system) may call it.
+ *
+ * @dev    TRUST MODEL: `settleAuthority` is the single point of control over fund
+ *         destination. `settle` only checks that `winner` actually deposited
+ *         (no paying a non-participant); it does NOT and cannot verify the game's
+ *         win condition on-chain — that lives in the settle system that calls here.
+ *         Whoever can trigger that system controls where the pot goes, so the
+ *         settle authority must be gated as tightly as the caveat-enforcer layer.
+ *         There is no owner key and no upgrade path; the rake is bounded at
+ *         construction (`rakeBps <= 10_000`).
  */
 contract Pot is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    IERC20 public immutable token; // USDC on Base
+    IERC20 public immutable token; // USDC on Mantle
     address public immutable settleAuthority; // World or registered settle system
     address public immutable rakeCollector;
     uint16 public immutable rakeBps; // e.g. 200 = 2%

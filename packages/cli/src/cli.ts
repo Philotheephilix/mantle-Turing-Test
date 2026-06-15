@@ -3,7 +3,7 @@
  * `nexus` CLI entry point — the developer's command surface over the SDK. Wires
  * the Commander program to the subcommands in ./commands: `init` (scaffold a
  * project), `codegen` (emit Solidity tables + TS types from `defineGame`),
- * `deploy` (deploy the World/systems to Base via Foundry), `dev` (local devnet),
+ * `deploy` (deploy the World/systems to Mantle via Foundry), `dev` (local devnet),
  * `migrate` (register/upgrade systems), and `fork` (fork a chain for testing).
  */
 import { Command } from "commander";
@@ -19,7 +19,7 @@ const program = new Command();
 
 program
   .name("nexus")
-  .description("Nexus game engine SDK — scaffold, codegen, deploy, and run games on Base.")
+  .description("Nexus game engine SDK — scaffold, codegen, deploy, and run games on Mantle.")
   .version("0.0.0");
 
 program
@@ -42,7 +42,7 @@ program
 program
   .command("deploy")
   .description("deploy World + systems + enforcers from the manifest (forge script)")
-  .requiredOption("--network <network>", "target network: base | base-sepolia")
+  .requiredOption("--network <network>", "target network: mantle | mantle-sepolia")
   .option("--manifest <path>", "path to manifest.json", "nexus.generated/manifest.json")
   .option("--contracts <dir>", "foundry project root with the deploy script")
   .option("--script <target>", "forge script target (Contract:Function)")
@@ -61,11 +61,11 @@ program
 
 program
   .command("dev")
-  .description("boot a local Base fork + the full stack (zero credentials)")
+  .description("boot a local Mantle fork + the full stack (zero credentials)")
   .option("--port <n>", "gateway port", (v) => Number.parseInt(v, 10), 8080)
-  .option("--fork-rpc <url>", "Base RPC to fork from")
+  .option("--fork-rpc <url>", "Mantle RPC to fork from")
   .option("--block <n>", "pin the fork at a block", (v) => Number.parseInt(v, 10))
-  .option("--no-fork", "use a fresh local chain instead of forking Base")
+  .option("--no-fork", "use a fresh local chain instead of forking Mantle")
   .option("--dry-run", "print the plan without spawning anything", false)
   .action(async (opts: Record<string, unknown>) => {
     await devCommand({
@@ -80,7 +80,7 @@ program
 program
   .command("migrate")
   .description("upgrade system logic without touching stored tables (re-codegen + repoint)")
-  .requiredOption("--network <network>", "target network: base | base-sepolia")
+  .requiredOption("--network <network>", "target network: mantle | mantle-sepolia")
   .option("--only <systems>", "comma-separated system names to upgrade")
   .option("--contracts <dir>", "foundry project root")
   .option("--script <target>", "forge script target")
@@ -99,11 +99,11 @@ program
 
 program
   .command("fork")
-  .description("clone live Base state into a local staging fork (anvil --fork-url)")
-  .option("--from <network>", "source network: base | base-sepolia", "base")
+  .description("clone live Mantle state into a local staging fork (anvil --fork-url)")
+  .option("--from <network>", "source network: mantle | mantle-sepolia", "mantle")
   .option("--at <block>", "block to snapshot at", (v) => Number.parseInt(v, 10))
   .option("--port <n>", "staging RPC port", (v) => Number.parseInt(v, 10), 8546)
-  .option("--fork-rpc <url>", "Base RPC to fork from")
+  .option("--fork-rpc <url>", "Mantle RPC to fork from")
   .option("--dry-run", "print the plan without spawning anything", false)
   .action(async (opts: Record<string, unknown>) => {
     await forkCommand({

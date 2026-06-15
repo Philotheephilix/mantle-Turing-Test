@@ -13,7 +13,7 @@
  *  - `seal`  → threshold-encrypt; only `commitment` (keccak256(dataHash)) goes
  *              on-chain; `ciphertext`/`dataHash` live off-chain.
  *  - `reveal`→ conditional decrypt; Lit nodes evaluate the conditions against
- *              Base and release key shares iff >2/3 agree.
+ *              Mantle and release key shares iff >2/3 agree.
  *  - `verify`→ runs the pinned `verifyMove` Lit Action in a node TEE, which
  *              decrypts the hand inside the enclave, checks legality, and signs
  *              an attestation with its PKP — the hand never leaves the enclave.
@@ -150,7 +150,7 @@ export class LitSecrets implements SecretsAdapter {
 
   // ── seal (Task 3) ─────────────────────────────────────────────────────────
 
-  /** NETWORK-GATED. Threshold-encrypt `data` behind Base-only conditions. */
+  /** NETWORK-GATED. Threshold-encrypt `data` behind Mantle-only conditions. */
   async seal(data: Bytes, conditions: AccessCondition[]): Promise<Sealed> {
     assertConditionsValid(conditions);
     const unified = toUnifiedAccessControlConditions(conditions);
@@ -183,7 +183,7 @@ export class LitSecrets implements SecretsAdapter {
 
   /**
    * NETWORK-GATED. Conditional decrypt. Lit nodes evaluate the conditions
-   * against Base; only if >2/3 agree do they release key shares.
+   * against Mantle; only if >2/3 agree do they release key shares.
    * `auth.sessionSigs` must be minted by the coordinator for the caller.
    */
   async reveal(sealed: Sealed, auth: AuthContext): Promise<Bytes> {
@@ -300,13 +300,13 @@ export class LitSecrets implements SecretsAdapter {
 // ── helpers ───────────────────────────────────────────────────────────────
 
 /**
- * Map our Base chain to Lit's chain slug. Lit refers to Base mainnet as `base`.
+ * Map our Mantle chain to Lit's chain slug (mantle / mantleSepoliaTestnet).
  * Confirm against Lit's supported-chains list per phase-08 §8 open question.
  */
 function litChainSlug(conditions: AccessCondition[]): string {
   const first = conditions[0];
-  if (first?.chain === "base-sepolia") return "baseSepolia";
-  return "base";
+  if (first?.chain === "mantle-sepolia") return "mantleSepoliaTestnet";
+  return "mantle";
 }
 
 function parseActionResponse(response: unknown): {

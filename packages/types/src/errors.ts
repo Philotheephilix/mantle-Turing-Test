@@ -28,7 +28,7 @@ export const NEXUS_ERROR_CODES = [
 
   // ── x402 / payment ──
   "PAYMENT_REQUIRED", // 402 issued
-  "SETTLEMENT_FAILED", // verify() could not confirm settlement on Base
+  "SETTLEMENT_FAILED", // verify() could not confirm settlement on Mantle
   "NONCE_REUSED", // replay protection tripped
 
   // ── secrets / randomness ──

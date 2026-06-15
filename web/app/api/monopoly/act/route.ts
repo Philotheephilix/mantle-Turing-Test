@@ -1,12 +1,16 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import type { Address } from "@steamlink/types";
 import { act } from "@/lib/monopoly/game-backend";
 import { jsonResponse } from "@/lib/monopoly/json-response";
+import type { Address } from "@steamlink/types";
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => ({}))) as { player?: Address; action?: string; spaceId?: number };
+  const body = (await req.json().catch(() => ({}))) as {
+    player?: Address;
+    action?: string;
+    spaceId?: number;
+  };
   if (!body.player || !body.action) {
     return jsonResponse({ ok: false, error: "player + action required" }, 400);
   }

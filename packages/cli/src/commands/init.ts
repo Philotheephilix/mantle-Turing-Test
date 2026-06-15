@@ -15,7 +15,7 @@ export function initCommand(name: string, opts: InitOptions = {}): void {
   log.plain("  Next:");
   log.plain(`    cd ${name}`);
   log.plain("    nexus codegen      # generate Solidity glue + manifest");
-  log.plain("    nexus dev          # local Base fork, full stack, zero credentials");
+  log.plain("    nexus dev          # local Mantle fork, full stack, zero credentials");
   log.plain("");
   void dir;
 }

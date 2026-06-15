@@ -1,0 +1,23 @@
+{
+  "_note": "Live on Mantle Sepolia (chain 5003). Shared Nexus infra (world, delegationManager, turnManager, enforcers, pot, randomness) + a 6-decimals TestUSDC were deployed via packages/contracts DeployFull + RandomnessCoordinator. `monopolyGame` is zeroed because the Monopoly game-system Solidity source is not in this repo — deploy it and paste the address here to make the table playable.",
+  "chainId": 5003,
+  "delegationManager": "0xD716d600a63bf08100b2544935AD6D020f0F1Eaf",
+  "enforcers": {
+    "allowedRecipients": "0xde6DDCDcbefFdc026a4B08b7c4a71E8f0310a797",
+    "erc20TransferAmount": "0x390bb386D086eFbb7087ABA62A1A3d5B74632aaD",
+    "limitedCalls": "0x9274b9E16efda6BAd38DBcc831599B2Aac2f3a30",
+    "perActionCap": "0xb445fffADcbDf717DD2C9f11cC132BD2ddD25505",
+    "systemAllowlist": "0xB14841426DD66eC5a5e9e6ED295707f1fbBAA6aD",
+    "timestamp": "0x43871FFf417E98997576070956332ba53e42A301",
+    "turnBound": "0xB670846D361AaF2F6b43560591B932121A80a25B"
+  },
+  "monopolyGame": "0x0000000000000000000000000000000000000000",
+  "monopolyGameSystemId": "0xc5a3bfafbfff9a5398c0d6f759a03d359832b849cd8ab54e458e2e0edca42ed8",
+  "pot": "0x253B95Bc8f2c799449639AfF0858b4c0E9f0416f",
+  "randomness": "0x56a9ABe6AA0F575ccB36f5DE3F1f9f9c3F8E94CC",
+  "relayer": "0xA3327d90d087cdddfB99E598E50B5Bdee7fC55bD",
+  "roomId": 1,
+  "turnManager": "0xc8856f9eD594461f50BB673AD5B2933AEc9882e9",
+  "usdc": "0x189BdF9e9e4FfE4AC0e8eD0479b158843Bcd0cde",
+  "world": "0x561f9370EBf532b8f6002B07a501C820b7f16659"
+}

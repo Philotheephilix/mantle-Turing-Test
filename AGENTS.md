@@ -4,13 +4,13 @@
 
 ## System summary
 
-Nexus is a fully on-chain, turn-based game engine for **Base**. A player signs
+Nexus is a fully on-chain, turn-based game engine for **Mantle**. A player signs
 **one** ERC-7710 / EIP-712 delegation when they join a room; the backend relayer
 redeems that single delegation for everything afterward — **gasless moves** (no
 wallet popups) and **x402 USDC payments** bounded by on-chain spend caps. Game
 state lives in an on-chain ECS World; settlement (entry fees, winner payout) runs
 through a trustless `Pot`. The architecture is **mainnet-ready** and is **deployed
-and verifiable live on Base Sepolia** (see `examples/*/deployments/`).
+and verifiable live on Mantle Sepolia** (see `examples/*/deployments/`).
 
 ## Repository map
 
@@ -19,7 +19,7 @@ on-chain reference games.
 
 ### packages/types — canonical branded types + error surface
 - `src/errors.ts` → `NexusError` class + `NEXUS_ERROR_CODES` (e.g. `NOT_YOUR_TURN`, `BUDGET_EXCEEDED`, `PAYMENT_REQUIRED`); `codeFromRevert()` maps on-chain reverts to typed codes. Imported by every package.
-- `src/branded.ts`, `src/chain.ts` → branded `Address`/`Hex`/`TokenSymbol`; `chain` is strictly `"base"`.
+- `src/branded.ts`, `src/chain.ts` → branded `Address`/`Hex`/`TokenSymbol`; `chain` is strictly `"mantle"`.
 
 ### packages/core — game definition, codegen, delegation engine
 - `src/schema/defineGame.ts` → `defineGame()`: the single source of truth (tables + systems + economy). Eager validation; everything else derives from it.
@@ -42,7 +42,7 @@ on-chain reference games.
 
 ### packages/relayer — the redemption transport (adapter port)
 - `src/port.ts` → `RelayerAdapter` port: **every** redemption (move or payment) reaches chain through this one interface. `Bundle`, `RelayerCapabilities`, `StatusEvent`.
-- `src/direct.ts` → `DirectRelayer`: self-relay via a funded viem account (default for devnet/e2e/examples; this is the relayer EOA redeeming on Base Sepolia).
+- `src/direct.ts` → `DirectRelayer`: self-relay via a funded viem account (default for devnet/e2e/examples; this is the relayer EOA redeeming on Mantle Sepolia).
 - `src/oneshot.ts` → `OneShotRelayer`: production 1Shot permissionless relayer (gas in stablecoins, EIP-7702 EOA upgrades, HMAC webhook-verified status).
 
 ### packages/backend — gateway, rooms/sessions, lifecycles, indexer, pots
@@ -55,7 +55,7 @@ on-chain reference games.
 
 ### packages/server — x402 monetization middleware + facilitator
 - `src/monetize.ts` → `createMonetizeHandler`: framework-agnostic x402 gate (issues 402 challenges, verifies redemptions, maps errors to HTTP status). `src/adapters/{express,hono}.ts` wrap it.
-- `src/facilitator/delegation-facilitator.ts` → default facilitator: verifies redemptions on Base via receipt reading, with nonce replay protection + finality depth.
+- `src/facilitator/delegation-facilitator.ts` → default facilitator: verifies redemptions on Mantle via receipt reading, with nonce replay protection + finality depth.
 
 ### packages/secrets — sealed secret state (Lit Protocol)
 - `src/lit.ts` → `LitSecrets` (default, network-gated): threshold `seal` / conditional `reveal` / TEE `verify`. Credentials live backend-only.
@@ -69,7 +69,7 @@ on-chain reference games.
 ### packages/cli — scaffold, codegen, deploy, devnet
 - `src/cli.ts` → `nexus` CLI: `init`, `codegen`, `deploy`, `dev`, `migrate`, `fork` (in `src/commands/`).
 
-### examples/uno — on-chain UNO (Next.js), live on Base Sepolia
+### examples/uno — on-chain UNO (Next.js), live on Mantle Sepolia
 - `lib/game-backend.ts` → **server-only** authority singleton: holds the live game, seals hands, charges entries, redeems moves, settles the pot. `charge()`, `chargeGrant()`, `move()`, `revealHand()`, `storeGrant()`.
 - `lib/engine.ts` → low-level Nexus redemption engine: on-chain randomness, turn setup, `redeemMove`, `chargeEntryFee`, `settlePot`. The relayer EOA is the Pot settle authority.
 - `lib/uno-game.ts` → authoritative full-rules UNO state machine.
@@ -78,13 +78,13 @@ on-chain reference games.
 - `lib/erc7715.ts` / `lib/erc7715-settle.ts` → the second wallet rail (see below).
 - `contracts/UnoGameSystem.sol`, `contracts/UnoPot.sol` → on-chain UNO system + escrow.
 - `app/api/{move,charge,grant,start,state,hand,health,new-game}/route.ts` → Next.js route handlers.
-- `deployments/base-sepolia.json` → live deployed addresses (delegationManager, world, enforcers, pot, randomness, unoGame, relayer, usdc).
+- `deployments/mantle-sepolia.json` → live deployed addresses (delegationManager, world, enforcers, pot, randomness, unoGame, relayer, usdc).
 
 ### examples/monopoly — on-chain Monopoly (out of scope for this map)
 
 ## End-to-end data flow (one signature → gasless moves + x402)
 
-1. **Define the game.** `examples/uno` is built from a `defineGame(...)` definition (`packages/core/src/schema/defineGame.ts`); `packages/core/src/codegen/solidity.ts` emits the table library and the World/systems are deployed (addresses in `examples/uno/deployments/base-sepolia.json`).
+1. **Define the game.** `examples/uno` is built from a `defineGame(...)` definition (`packages/core/src/schema/defineGame.ts`); `packages/core/src/codegen/solidity.ts` emits the table library and the World/systems are deployed (addresses in `examples/uno/deployments/mantle-sepolia.json`).
 
 2. **Connect a wallet.** `examples/uno/lib/signer.ts:connectMetaMask` / `connectGuest` yields a signer (a MetaMask Hybrid DeleGator smart account, or a guest viem account).
 
@@ -132,16 +132,16 @@ pnpm typecheck
 PATH=$HOME/.foundry/bin:$PATH forge test     # in packages/contracts
 PATH=$HOME/.foundry/bin:$PATH forge build
 
-# Run an example (UNO), live against Base Sepolia
+# Run an example (UNO), live against Mantle Sepolia
 cd examples/uno
 pnpm dev             # next dev on :3100
 pnpm bots            # in-process bot players
-pnpm test:e2e        # Playwright e2e (verified on Base Sepolia)
+pnpm test:e2e        # Playwright e2e (verified on Mantle Sepolia)
 pnpm demo            # recorded full-game gameplay video
 ```
 
 **Deployments** (live, verifiable addresses) live in
-`examples/<game>/deployments/base-sepolia.json` (and `84532.json`): World,
+`examples/<game>/deployments/mantle-sepolia.json` (and `5003.json`): World,
 NexusDelegationManager, the enforcer set, Pot, RandomnessCoordinator, the game
 system, the relayer EOA, and USDC.
 
@@ -168,7 +168,7 @@ system, the relayer EOA, and USDC.
   signing is isolated in `examples/uno/lib/delegations.ts`.
 
 - **On-chain invariants.**
-  - **Base only** — `chain` is strictly `"base"`; no multi-chain abstraction.
+  - **Mantle only** — `chain` is strictly `"mantle"`; no multi-chain abstraction.
   - **One delegation per player per room** — a single EIP-712 grant carries both
     the gameplay and budget caveat groups; no flow re-prompts mid-game.
   - **Capabilities are the source of truth** — payment/fee tokens and the relayer

@@ -1,13 +1,17 @@
 "use client";
 
+import { CONTRIBUTE_NAV, ContributeDocs } from "@/components/docs/ContributeDocs";
+import { type DocTab, DocsShell } from "@/components/docs/DocsShell";
+import { SDK_NAV, SdkDocs } from "@/components/docs/SdkDocs";
 import { useState } from "react";
-import { DocsShell, type DocTab } from "@/components/docs/DocsShell";
-import { SdkDocs, SDK_NAV } from "@/components/docs/SdkDocs";
-import { ContributeDocs, CONTRIBUTE_NAV } from "@/components/docs/ContributeDocs";
 
 const TABS: DocTab[] = [
   { key: "sdk", label: "SDK reference", sub: "Use the @steamlink/* packages" },
-  { key: "contribute", label: "Contribute a game", sub: "Raise a PR to add UNO/Monopoly-style games" },
+  {
+    key: "contribute",
+    label: "Contribute a game",
+    sub: "Raise a PR to add UNO/Monopoly-style games",
+  },
 ];
 
 export default function DocsPage() {

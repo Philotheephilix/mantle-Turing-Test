@@ -23,7 +23,7 @@
  * player's MetaMask smart account), settled by the canonical manager; the on-chain
  * ERC20PeriodTransferEnforcer bounds the spend to the granted cap.
  *
- * `getSmartAccountsEnvironment(84532)` resolves the canonical Base Sepolia manager:
+ * `getSmartAccountsEnvironment(5003)` resolves the canonical Mantle Sepolia manager:
  *   DelegationManager = 0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3
  */
 import type { Address, Hex } from "@steamlink/types";
@@ -45,18 +45,18 @@ import {
   getSmartAccountsEnvironment,
   type Delegation,
 } from "@metamask/smart-accounts-kit";
-import { BASE_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_RPC_URL, RELAYER_PRIVATE_KEY } from "./config";
+import { MANTLE_SEPOLIA_CHAIN_ID, MANTLE_SEPOLIA_RPC_URL, RELAYER_PRIVATE_KEY } from "./config";
 import { deployment } from "./deployment";
 
-const baseSepolia = {
-  id: BASE_SEPOLIA_CHAIN_ID,
-  name: "Base Sepolia",
-  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [BASE_SEPOLIA_RPC_URL] } },
+const mantleSepoliaTestnet = {
+  id: MANTLE_SEPOLIA_CHAIN_ID,
+  name: "Mantle Sepolia",
+  nativeCurrency: { name: "Mantle", symbol: "MNT", decimals: 18 },
+  rpcUrls: { default: { http: [MANTLE_SEPOLIA_RPC_URL] } },
 } as const satisfies Chain;
 
-/** The canonical MetaMask Smart Accounts environment for Base Sepolia. */
-const ENV = getSmartAccountsEnvironment(BASE_SEPOLIA_CHAIN_ID);
+/** The canonical MetaMask Smart Accounts environment for Mantle Sepolia. */
+const ENV = getSmartAccountsEnvironment(MANTLE_SEPOLIA_CHAIN_ID);
 
 /** The canonical DelegationManager every granted ERC-7715 context redeems through. */
 export const CANONICAL_DELEGATION_MANAGER = ENV.DelegationManager as Address;
@@ -73,13 +73,13 @@ function clients() {
   if (cached) return cached;
   const relayer = privateKeyToAccount(RELAYER_PRIVATE_KEY);
   const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(BASE_SEPOLIA_RPC_URL),
+    chain: mantleSepoliaTestnet,
+    transport: http(MANTLE_SEPOLIA_RPC_URL),
   }) as PublicClient;
   const walletClient = createWalletClient({
     account: relayer,
-    chain: baseSepolia,
-    transport: http(BASE_SEPOLIA_RPC_URL),
+    chain: mantleSepoliaTestnet,
+    transport: http(MANTLE_SEPOLIA_RPC_URL),
   });
   cached = { publicClient, walletClient, relayer };
   return cached;
@@ -130,7 +130,7 @@ export async function chargeViaGrant(
   // Plain EOA tx to the CANONICAL DelegationManager (relayer pays gas; no bundler on testnet).
   const txHash = (await walletClient.sendTransaction({
     account: relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
     to: CANONICAL_DELEGATION_MANAGER,
     data,
   })) as Hex;

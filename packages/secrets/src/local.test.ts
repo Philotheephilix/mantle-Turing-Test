@@ -12,7 +12,7 @@ const BOB = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
 
 const ownerCondition: AccessCondition[] = [
   {
-    chain: "base",
+    chain: "mantle",
     method: "ownerOf",
     standardContractType: "ERC721",
     returns: { comparator: "=", value: ":userAddress" },
@@ -63,7 +63,7 @@ describe("named policy templates", () => {
     });
     expect(c).toEqual([
       {
-        chain: "base",
+        chain: "mantle",
         method: "ownerOf",
         standardContractType: "ERC721",
         contractAddress: "0x1111111111111111111111111111111111111111",
@@ -101,7 +101,7 @@ describe("named policy templates", () => {
     const reg = defaultPolicyRegistry;
     reg.registerPolicy("sealed-bid-until-deadline", (ctx) => [
       {
-        chain: "base",
+        chain: "mantle",
         method: "blockTimestampGte",
         parameters: [ctx.deadline ?? ":deadline"],
         returns: { comparator: "=", value: "true" },
@@ -113,7 +113,7 @@ describe("named policy templates", () => {
     expect(() =>
       reg.registerPolicy("bad", (ctx: Record<string, unknown>) => [
         {
-          chain: "base",
+          chain: "mantle",
           method: "x",
           parameters: [String(ctx.notAThing)],
           returns: { comparator: "=", value: "true" },
@@ -122,7 +122,7 @@ describe("named policy templates", () => {
     ).toThrow(NexusError);
   });
 
-  it("rejects a non-Base condition at registration", () => {
+  it("rejects a non-Mantle condition at registration", () => {
     expect(() =>
       defaultPolicyRegistry.registerPolicy("evil", () => [
         // @ts-expect-error deliberately invalid chain

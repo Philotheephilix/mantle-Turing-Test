@@ -5,7 +5,7 @@ import {IWorld} from "../world/IWorld.sol";
 
 /**
  * @title System
- * @notice Base contract every Nexus system inherits. Provides the redemption-aware
+ * @notice Abstract base contract every Nexus system inherits. Provides the redemption-aware
  *         `_msgSender()` (the seam), `_world()` context, an `onlyWorld` guard, and
  *         typed table read/write helpers that proxy through the World's access
  *         control.

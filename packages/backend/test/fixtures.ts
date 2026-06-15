@@ -91,7 +91,7 @@ export class FakeRelayer implements RelayerAdapter {
 
   async getCapabilities(): Promise<RelayerCapabilities> {
     return {
-      chains: ["base"],
+      chains: ["mantle"],
       tokens: { USDC },
       feeCollector: TARGET,
       targetAddress: TARGET,

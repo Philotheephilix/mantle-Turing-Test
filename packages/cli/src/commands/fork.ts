@@ -11,21 +11,21 @@ export interface ForkOptions {
 }
 
 /**
- * `nexus fork` — clone live Base state into a local staging fork via
+ * `nexus fork` — clone live Mantle state into a local staging fork via
  * `anvil --fork-url` (copy-on-read: real World/table storage is pulled lazily on
- * access). Nothing settles on real Base. Reads WORLD_ADDRESS so the staging
+ * access). Nothing settles on real Mantle. Reads WORLD_ADDRESS so the staging
  * backend can talk to the forked copy of the live World.
  */
 export async function forkCommand(opts: ForkOptions = {}): Promise<void> {
-  const from = opts.from ?? "base";
+  const from = opts.from ?? "mantle";
   if (!isChainKey(from)) {
-    throw new CliError(`--from must be "base" or "base-sepolia" (Base-only).`);
+    throw new CliError(`--from must be "mantle" or "mantle-sepolia" (Mantle-only).`);
   }
   const chain = CHAINS[from];
   const port = opts.port ?? 8546;
   const forkUrl =
     opts.forkRpc?.trim() ||
-    (from === "base" ? process.env.BASE_RPC_URL : process.env.BASE_SEPOLIA_RPC_URL)?.trim() ||
+    (from === "mantle" ? process.env.MANTLE_RPC_URL : process.env.MANTLE_SEPOLIA_RPC_URL)?.trim() ||
     chain.defaultRpcUrl;
 
   log.title(`nexus fork --from ${from}`);
@@ -45,7 +45,7 @@ export async function forkCommand(opts: ForkOptions = {}): Promise<void> {
   const anvil = await startAnvil({ port, forkUrl, forkBlockNumber: opts.at });
   log.ok(`forked ${chain.name}${opts.at ? ` @ ${opts.at}` : ""} — live state, copy-on-read`);
   log.arrow(`Staging RPC   ${anvil.rpcUrl}`);
-  log.info("Live state cloned. Test migrations/features here; nothing settles on real Base.");
+  log.info("Live state cloned. Test migrations/features here; nothing settles on real Mantle.");
   log.info("Ctrl-C to stop the fork.");
 
   const stop = () => {

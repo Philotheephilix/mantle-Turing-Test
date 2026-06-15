@@ -4,7 +4,7 @@ import type { Hex, TokenSymbol } from "@nexus/types";
  * The FacilitatorAdapter port — the x402 "seller" side of every `charge()`.
  *
  * `challenge()` is synchronous (no chain call): it assembles the 402 body and
- * mints a single-use nonce. `verify()` confirms a redemption settled on Base by
+ * mints a single-use nonce. `verify()` confirms a redemption settled on Mantle by
  * reading the receipt, and is idempotent on the redemption nonce so a
  * re-delivered webhook does not double-settle.
  *
@@ -19,7 +19,7 @@ export interface FacilitatorAdapter {
    * derive the token address, so the return type permits a Promise.
    */
   challenge(req: PaymentRequest): Challenge402 | Promise<Challenge402>;
-  /** Confirm a redemption settled on Base; idempotent on the redemption nonce. */
+  /** Confirm a redemption settled on Mantle; idempotent on the redemption nonce. */
   verify(redemption: Redemption): Promise<Settlement>;
 }
 
@@ -38,7 +38,7 @@ export interface PaymentRequest {
   payer: Hex;
 }
 
-/** HTTP 402 body — the x402 challenge. `chain` is fixed to "base". */
+/** HTTP 402 body — the x402 challenge. `chain` is fixed to "mantle". */
 export interface Challenge402 {
   scheme: "x402";
   /** Amount in the token's smallest unit (string, never a JS number). */
@@ -47,7 +47,7 @@ export interface Challenge402 {
   token: Hex;
   tokenSymbol: TokenSymbol;
   recipient: Hex;
-  chain: "base";
+  chain: "mantle";
   /** Single-use nonce for replay protection (backend spec §8). */
   nonce: Hex;
   /** Epoch ms after which the nonce is invalid. */

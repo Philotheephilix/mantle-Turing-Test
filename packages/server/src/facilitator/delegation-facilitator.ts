@@ -12,7 +12,7 @@ import { DEFAULT_NONCE_TTL_MS, InMemoryNonceStore, type NonceStore } from "./non
 import { type ReceiptReaderClient, verifyTransferOnChain } from "./verify.js";
 
 /**
- * Default finality depth (H2). Base has fast, deep finality; 1 confirmation
+ * Default finality depth (H2). Mantle has fast, deep finality; 1 confirmation
  * (the mining block itself) is the floor — raise via config for higher-value
  * charges. Kept low enough to remain responsive on the hot path.
  */
@@ -26,7 +26,7 @@ export interface DelegationFacilitatorConfig {
    */
   capabilities: RelayerCapabilities | (() => Promise<RelayerCapabilities>);
   /**
-   * A viem public client (or the narrow `ReceiptReaderClient` port) on Base used
+   * A viem public client (or the narrow `ReceiptReaderClient` port) on Mantle used
    * by `verify()` to read the settlement receipt. REAL on-chain read in prod;
    * injected with a known receipt in tests.
    */
@@ -121,7 +121,7 @@ export class DelegationFacilitator implements FacilitatorAdapter {
       token: asAddress(tokenAddr) as Hex,
       tokenSymbol: req.token,
       recipient: asAddress(req.recipient),
-      chain: "base",
+      chain: "mantle",
       nonce: record.nonce,
       expiresAt: record.expiresAt,
       facilitator: "nexus",
@@ -130,7 +130,7 @@ export class DelegationFacilitator implements FacilitatorAdapter {
 
   /**
    * `verify()` per the port. Single-uses the nonce (replay protection), then
-   * confirms the USDC `Transfer` on Base via the injected client, with a finality
+   * confirms the USDC `Transfer` on Mantle via the injected client, with a finality
    * depth and an issuance binding (H2). Idempotent: a re-delivered webhook
    * returns the cached Settlement without re-consuming.
    *

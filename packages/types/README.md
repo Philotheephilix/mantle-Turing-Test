@@ -4,7 +4,7 @@ Shared branded types and the canonical `NexusError` taxonomy for the Nexus SDK.
 
 ## What it is
 
-Nexus is a fully onchain, turn-based game engine SDK for Base. `@steamlink/types` is its dependency-free base package: it holds the branded primitive types (addresses, hex, token amounts), the Base chain constants, and the one canonical `NexusError` / error-code taxonomy that every other `@steamlink/*` package imports. Defining errors and primitives once here keeps the whole SDK typed end to end.
+Nexus is a fully onchain, turn-based game engine SDK for Mantle. `@steamlink/types` is its dependency-free base package: it holds the branded primitive types (addresses, hex, token amounts), the Mantle chain constants, and the one canonical `NexusError` / error-code taxonomy that every other `@steamlink/*` package imports. Defining errors and primitives once here keeps the whole SDK typed end to end.
 
 ## Install
 
@@ -25,9 +25,9 @@ yarn add @steamlink/types
 - Types: `Hex`, `Address`, `Bytes32`, `TokenAmount`, `TokenSymbol`
 - Validators / constructors: `asHex`, `asAddress`, `isAddress`, `asBytes32`, `asTokenAmount`
 
-**Chain constants** (`chain.ts`) — Base only:
+**Chain constants** (`chain.ts`) — Mantle only:
 
-- `CHAINS` (config for `base` and `base-sepolia`, including canonical USDC addresses)
+- `CHAINS` (config for `base` and `mantle-sepolia`, including canonical USDC addresses)
 - `ChainKey` type, `isChainKey` guard, `chainConfig` lookup
 
 **Errors** (`errors.ts`) — the canonical error surface:
@@ -44,7 +44,7 @@ Construct and narrow a branded type:
 ```ts
 import { asAddress, type Address } from "@steamlink/types";
 
-const player: Address = asAddress("0x036CbD53842c5426634e7929541eC2318f3dCF7e");
+const player: Address = asAddress("0x0000000000000000000000000000000000000000");
 // throws TypeError if the input isn't a 20-byte 0x address
 ```
 
@@ -65,4 +65,4 @@ try {
 
 ## Part of Nexus
 
-Peer packages: `@steamlink/core`, `@steamlink/react`, `@steamlink/server`, `@steamlink/relayer`, `@steamlink/secrets`, `@steamlink/cli`. Base only.
+Peer packages: `@steamlink/core`, `@steamlink/react`, `@steamlink/server`, `@steamlink/relayer`, `@steamlink/secrets`, `@steamlink/cli`. Mantle only.

@@ -6,7 +6,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /**
  * @title TestUSDC
  * @notice A REAL 6-decimals ERC-20 standing in for canonical USDC on LOCAL chains
- *         (anvil) only. Base Sepolia / Base mainnet use the canonical USDC at the
+ *         (anvil) only. Mantle Sepolia / Mantle mainnet use the canonical USDC at the
  *         address supplied via env — never this. Freely mintable for funding the
  *         payer in the live charge tests.
  */

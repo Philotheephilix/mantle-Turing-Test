@@ -1,5 +1,13 @@
 "use client";
 
+import { type Erc7715Grant, connectMetaMaskGrant } from "@/lib/erc7715";
+import {
+  type Connection,
+  clearGuest,
+  connectGuest,
+  connectMetaMask,
+  hasInjectedWallet,
+} from "@/lib/wallet";
 /**
  * App-wide wallet provider + connector — ONE wallet identity shared across the
  * whole site (landing + every game). Wraps the app in the root layout.
@@ -12,8 +20,6 @@
  * ERC-7715 grant is redeemed against whichever game's pot server-side.
  */
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { connectMetaMask, connectGuest, clearGuest, hasInjectedWallet, type Connection } from "@/lib/wallet";
-import { connectMetaMaskGrant, type Erc7715Grant } from "@/lib/erc7715";
 
 export type WalletMode = "metamask" | "guest";
 

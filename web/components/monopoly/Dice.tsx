@@ -2,11 +2,36 @@
 
 const PIPS: Record<number, [number, number][]> = {
   1: [[1, 1]],
-  2: [[0, 0], [2, 2]],
-  3: [[0, 0], [1, 1], [2, 2]],
-  4: [[0, 0], [0, 2], [2, 0], [2, 2]],
-  5: [[0, 0], [0, 2], [1, 1], [2, 0], [2, 2]],
-  6: [[0, 0], [0, 2], [1, 0], [1, 2], [2, 0], [2, 2]],
+  2: [
+    [0, 0],
+    [2, 2],
+  ],
+  3: [
+    [0, 0],
+    [1, 1],
+    [2, 2],
+  ],
+  4: [
+    [0, 0],
+    [0, 2],
+    [2, 0],
+    [2, 2],
+  ],
+  5: [
+    [0, 0],
+    [0, 2],
+    [1, 1],
+    [2, 0],
+    [2, 2],
+  ],
+  6: [
+    [0, 0],
+    [0, 2],
+    [1, 0],
+    [1, 2],
+    [2, 0],
+    [2, 2],
+  ],
 };
 
 function Face({ n, rolling }: { n: number; rolling: boolean }) {
@@ -36,7 +61,10 @@ export function Dice({ die1, die2, rolling }: { die1: number; die2: number; roll
       <Face n={die1 || 1} rolling={rolling} />
       <Face n={die2 || 1} rolling={rolling} />
       <div className="text-ink-faint text-sm font-mono">
-        = <span className="text-grape text-lg font-extrabold font-display">{(die1 || 0) + (die2 || 0)}</span>
+        ={" "}
+        <span className="text-grape text-lg font-extrabold font-display">
+          {(die1 || 0) + (die2 || 0)}
+        </span>
       </div>
     </div>
   );

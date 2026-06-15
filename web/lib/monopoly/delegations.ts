@@ -18,7 +18,7 @@ import type { Address } from "@steamlink/types";
 import type { LocalAccount } from "viem/accounts";
 import { addresses, MONOPOLY_SYSTEM_ID, RELAYER_ADDRESS } from "./deployment";
 
-const CHAIN_ID = 84532;
+const CHAIN_ID = 5003;
 const GAMEPLAY_MAX_ACTIONS = 400;
 const GAMEPLAY_MAX_REDEMPTIONS = 400n;
 

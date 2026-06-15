@@ -1,6 +1,6 @@
 import { CodeBlock } from "./CodeBlock";
-import { Section, PageTitle, H2, H3, P, Lead, C, Callout, Step, Pills, Ul, Li } from "./prose";
 import type { NavGroup } from "./DocsShell";
+import { C, Callout, H2, H3, Lead, Li, P, PageTitle, Pills, Section, Step, Ul } from "./prose";
 
 const REPO = "https://github.com/Philotheephilix/SteamLink";
 
@@ -19,7 +19,7 @@ export const CONTRIBUTE_NAV: NavGroup[] = [
       { id: "c-fork", label: "1 · Fork & branch" },
       { id: "c-define", label: "2 · Define the game" },
       { id: "c-systems", label: "3 · Write systems" },
-      { id: "c-deploy", label: "4 · Deploy to Base" },
+      { id: "c-deploy", label: "4 · Deploy to Mantle" },
       { id: "c-backend", label: "5 · Backend wiring" },
       { id: "c-route", label: "6 · Route & UI" },
       { id: "c-catalog", label: "7 · Register in catalog" },
@@ -41,10 +41,10 @@ export function ContributeDocs() {
       <Section id="c-overview">
         <PageTitle kicker="Contribute">Add a new game</PageTitle>
         <Lead>
-          UNO and Monopoly both live in this repo as first-class, in-tree games. Adding a third works
-          the same way: describe it as tables + Solidity systems, deploy to Base Sepolia, wire a
-          backend, drop in a route, and register it in the catalog. This page walks the whole path
-          from fork to merged PR.
+          UNO and Monopoly both live in this repo as first-class, in-tree games. Adding a third
+          works the same way: describe it as tables + Solidity systems, deploy to Mantle Sepolia,
+          wire a backend, drop in a route, and register it in the catalog. This page walks the whole
+          path from fork to merged PR.
         </Lead>
         <Callout tone="rule" title="The one rule that never bends">
           A player signs <strong>one</strong> delegation when they join your room. No flow may
@@ -64,7 +64,7 @@ export function ContributeDocs() {
             <C>defineGame(...)</C> — the data + logic schema (tables, systems, economy).
           </Li>
           <Li>
-            <C>*.sol</C> systems + caveat enforcers in <C>packages/contracts</C>, deployed to Base
+            <C>*.sol</C> systems + caveat enforcers in <C>packages/contracts</C>, deployed to Mantle
             Sepolia.
           </Li>
           <Li>
@@ -76,7 +76,8 @@ export function ContributeDocs() {
             grant, …).
           </Li>
           <Li>
-            <C>web/app/play/&lt;game&gt;/page.tsx</C> — the client UI, on the shared wallet provider.
+            <C>web/app/play/&lt;game&gt;/page.tsx</C> — the client UI, on the shared wallet
+            provider.
           </Li>
           <Li>
             An entry in <C>web/lib/games.ts</C> — the catalog that drives the home shelf.
@@ -91,7 +92,7 @@ export function ContributeDocs() {
 
       <Section id="c-prereqs">
         <H2>Prerequisites</H2>
-        <Pills items={["Node ≥ 20", "pnpm 11", "Foundry (forge)", "a Base Sepolia key"]} />
+        <Pills items={["Node ≥ 20", "pnpm 11", "Foundry (forge)", "a Mantle Sepolia key"]} />
         <CodeBlock
           lang="bash"
           code={`# from the repo root
@@ -121,8 +122,8 @@ $ git checkout -b feat/checkers-game`}
       <Section id="c-define">
         <Step n={2} title="Define the game" />
         <P>
-          Create <C>web/lib/&lt;game&gt;/game.ts</C> and describe the onchain state as tables and the
-          logic as Solidity system paths. The name must be lower-kebab/snake.
+          Create <C>web/lib/&lt;game&gt;/game.ts</C> and describe the onchain state as tables and
+          the logic as Solidity system paths. The name must be lower-kebab/snake.
         </P>
         <CodeBlock
           title="web/lib/checkers/game.ts"
@@ -178,10 +179,7 @@ contract MoveSystem {
     }
 }`}
         />
-        <CodeBlock
-          lang="bash"
-          code={`$ forge test --match-contract MoveSystem -vvv`}
-        />
+        <CodeBlock lang="bash" code={"$ forge test --match-contract MoveSystem -vvv"} />
         <Callout tone="note" title="Don't reinvent enforcement">
           Turn order and spend caps are enforced by the shared caveat enforcers, not your system.
           Your system can assume the engine already rejected out-of-turn or over-budget calls.
@@ -190,33 +188,33 @@ contract MoveSystem {
 
       {/* ── 4 ── */}
       <Section id="c-deploy">
-        <Step n={4} title="Deploy to Base Sepolia" />
+        <Step n={4} title="Deploy to Mantle Sepolia" />
         <P>
           Generate the Solidity tables from your schema, deploy the World + systems, and drop the
-          resulting addresses into <C>web/lib/&lt;game&gt;/deployments/base-sepolia.json</C> (mirror
-          how UNO and Monopoly do it).
+          resulting addresses into <C>web/lib/&lt;game&gt;/deployments/mantle-sepolia.json</C>{" "}
+          (mirror how UNO and Monopoly do it).
         </P>
         <CodeBlock
           lang="bash"
           code={`# from packages/contracts
 $ forge script script/Deploy.s.sol \\
-    --rpc-url $BASE_SEPOLIA_RPC \\
+    --rpc-url $MANTLE_SEPOLIA_RPC \\
     --private-key $DEPLOYER_KEY \\
     --broadcast`}
         />
         <CodeBlock
           lang="json"
-          title="web/lib/checkers/deployments/base-sepolia.json"
+          title="web/lib/checkers/deployments/mantle-sepolia.json"
           code={`{
   "world": "0x...",
   "systems": { "MoveSystem": "0x...", "CaptureSystem": "0x..." },
   "delegationManager": "0x...",
-  "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  "usdc": "0x0000000000000000000000000000000000000000"
 }`}
         />
         <Callout tone="warn" title="Never commit funded keys">
-          Deployer and player keys, and any <C>.env.local</C>, are gitignored
-          (<C>**/players.*.local.json</C>, <C>web/.env.local</C>). Keep it that way — a committed
+          Deployer and player keys, and any <C>.env.local</C>, are gitignored (
+          <C>**/players.*.local.json</C>, <C>web/.env.local</C>). Keep it that way — a committed
           funded key is an automatic PR rejection.
         </Callout>
       </Section>
@@ -241,8 +239,8 @@ $ forge script script/Deploy.s.sol \\
         />
         <Callout tone="rule" title="Capabilities are the source of truth">
           Read payment/fee tokens and the relayer <C>targetAddress</C> from{" "}
-          <C>relayer_getCapabilities</C> and cache them. Reject a <C>targetAddress</C> mismatch before
-          submitting a bundle. Webhooks drive status — no chain polling on the hot path.
+          <C>relayer_getCapabilities</C> and cache them. Reject a <C>targetAddress</C> mismatch
+          before submitting a bundle. Webhooks drive status — no chain polling on the hot path.
         </Callout>
       </Section>
 
@@ -252,7 +250,8 @@ $ forge script script/Deploy.s.sol \\
         <P>
           Create <C>web/app/play/&lt;game&gt;/page.tsx</C>. Use the shared wallet via{" "}
           <C>useWallet()</C> — never spin up your own connector — and render every transaction hash
-          with <C>linkifyTx</C> so it links to the explorer. Match the paper/sticker design language.
+          with <C>linkifyTx</C> so it links to the explorer. Match the paper/sticker design
+          language.
         </P>
         <CodeBlock
           lang="tsx"
@@ -278,9 +277,9 @@ export default function CheckersPage() {
       <Section id="c-catalog">
         <Step n={7} title="Register in the catalog" />
         <P>
-          Add a <C>GameEntry</C> to <C>GAMES</C> in <C>web/lib/games.ts</C>. Set <C>status: "live"</C>{" "}
-          so the card routes to <C>/play/&lt;slug&gt;</C>. Porting a game is a registry edit, not a
-          page rewrite.
+          Add a <C>GameEntry</C> to <C>GAMES</C> in <C>web/lib/games.ts</C>. Set{" "}
+          <C>status: "live"</C> so the card routes to <C>/play/&lt;slug&gt;</C>. Porting a game is a
+          registry edit, not a page rewrite.
         </P>
         <CodeBlock
           title="web/lib/games.ts"
@@ -290,7 +289,7 @@ export default function CheckersPage() {
   monogram: "CK",
   tagline: "Kings, captures, and a real USDC pot.",
   description:
-    "The full draughts ruleset on Base. Every move is gasless; the 1 USDC entry is a real x402 payment. Last player standing takes the pot.",
+    "The full draughts ruleset on Mantle. Every move is gasless; the 1 USDC entry is a real x402 payment. Last player standing takes the pot.",
   status: "live",
   players: "2",
   tags: ["Board", "Gasless", "x402 entry"],
@@ -333,12 +332,12 @@ $ pnpm --filter @steamlink/web build`}
           lang="bash"
           code={`$ git add web/lib/checkers web/app/play/checkers web/app/api/checkers \\
         packages/contracts/src/systems web/lib/games.ts
-$ git commit -m "feat(checkers): add Checkers game (in-tree, gasless on Base)"
+$ git commit -m "feat(checkers): add Checkers game (in-tree, gasless on Mantle)"
 $ git push origin feat/checkers-game
 
 # then, with the GitHub CLI:
 $ gh pr create --base main --title "feat: add Checkers" \\
-    --body "New in-tree game. Deployed to Base Sepolia. One delegation, gasless moves, x402 entry."`}
+    --body "New in-tree game. Deployed to Mantle Sepolia. One delegation, gasless moves, x402 entry."`}
         />
         <P>
           Or open it from the compare view:{" "}
@@ -364,19 +363,19 @@ $ gh pr create --base main --title "feat: add Checkers" \\
             the single grant.
           </Li>
           <Li>
-            <strong>Base only.</strong> <C>chain</C> stays <C>"base"</C>; no multi-chain abstraction
-            added.
+            <strong>Mantle only.</strong> <C>chain</C> stays <C>"mantle"</C>; no multi-chain
+            abstraction added.
           </Li>
           <Li>
-            <strong>No hardcoded tokens.</strong> Payment/fee token and <C>targetAddress</C> come from
-            capabilities.
+            <strong>No hardcoded tokens.</strong> Payment/fee token and <C>targetAddress</C> come
+            from capabilities.
           </Li>
           <Li>
             <strong>No secrets committed.</strong> Funded keys / <C>.env.local</C> stay gitignored.
           </Li>
           <Li>
-            <strong>Typed errors.</strong> Enforcer rejections surface as <C>NexusError</C> codes, not
-            raw strings.
+            <strong>Typed errors.</strong> Enforcer rejections surface as <C>NexusError</C> codes,
+            not raw strings.
           </Li>
           <Li>
             <strong>Explorer links.</strong> Every tx hash renders through <C>linkifyTx</C>.
@@ -386,8 +385,8 @@ $ gh pr create --base main --title "feat: add Checkers" \\
             all pass.
           </Li>
           <Li>
-            <strong>On-brand UI.</strong> Uses the shared wallet provider and the paper/sticker design
-            language.
+            <strong>On-brand UI.</strong> Uses the shared wallet provider and the paper/sticker
+            design language.
           </Li>
         </Ul>
         <Callout tone="tip" title="That's it">

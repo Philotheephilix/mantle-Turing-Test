@@ -16,7 +16,7 @@ import type { LocalAccount } from "viem/accounts";
 import { addresses, RELAYER_ADDRESS } from "./deployment";
 import { UNO_ALIAS_SYSTEM_ID } from "./game";
 
-const CHAIN_ID = 84532;
+const CHAIN_ID = 5003;
 const GAMEPLAY_MAX_ACTIONS = 200;
 const GAMEPLAY_MAX_REDEMPTIONS = 200n;
 

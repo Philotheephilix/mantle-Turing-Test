@@ -4,7 +4,14 @@
  * Purely cosmetic, hidden from assistive tech.
  */
 
-type Bit = { x: string; y: string; s: number; d: number; delay: number; kind: "star" | "coin" | "pip" | "card" };
+type Bit = {
+  x: string;
+  y: string;
+  s: number;
+  d: number;
+  delay: number;
+  kind: "star" | "coin" | "pip" | "card";
+};
 
 const BITS: Bit[] = [
   { x: "6%", y: "18%", s: 26, d: 11, delay: 0, kind: "star" },
@@ -22,29 +29,83 @@ function Shape({ kind, s }: { kind: Bit["kind"]; s: number }) {
   switch (kind) {
     case "star":
       return (
-        <svg width={s} height={s} viewBox="0 0 24 24" style={{ animation: "twinkle 5s ease-in-out infinite" }}>
-          <path d="M12 0c1 6 5 10 11 12-6 2-10 6-11 12-1-6-5-10-11-12C7 10 11 6 12 0Z" fill="oklch(0.82 0.15 78)" stroke={ink} strokeWidth="1.5" strokeLinejoin="round" />
+        <svg
+          width={s}
+          height={s}
+          viewBox="0 0 24 24"
+          style={{ animation: "twinkle 5s ease-in-out infinite" }}
+        >
+          <path
+            d="M12 0c1 6 5 10 11 12-6 2-10 6-11 12-1-6-5-10-11-12C7 10 11 6 12 0Z"
+            fill="oklch(0.82 0.15 78)"
+            stroke={ink}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
         </svg>
       );
     case "coin":
       return (
         <svg width={s} height={s} viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10" fill="oklch(0.82 0.15 78)" stroke={ink} strokeWidth="1.8" />
-          <text x="12" y="16.5" textAnchor="middle" fontSize="12" fontWeight="800" fill={ink} fontFamily="var(--font-display)">$</text>
+          <circle
+            cx="12"
+            cy="12"
+            r="10"
+            fill="oklch(0.82 0.15 78)"
+            stroke={ink}
+            strokeWidth="1.8"
+          />
+          <text
+            x="12"
+            y="16.5"
+            textAnchor="middle"
+            fontSize="12"
+            fontWeight="800"
+            fill={ink}
+            fontFamily="var(--font-display)"
+          >
+            $
+          </text>
         </svg>
       );
     case "pip":
       return (
         <svg width={s} height={s} viewBox="0 0 24 24">
-          <rect x="2" y="2" width="20" height="20" rx="5" fill="oklch(0.97 0.01 90)" stroke={ink} strokeWidth="1.8" />
+          <rect
+            x="2"
+            y="2"
+            width="20"
+            height="20"
+            rx="5"
+            fill="oklch(0.97 0.01 90)"
+            stroke={ink}
+            strokeWidth="1.8"
+          />
           <circle cx="12" cy="12" r="3" fill="oklch(0.66 0.2 30)" />
         </svg>
       );
     case "card":
       return (
         <svg width={s} height={s * 1.4} viewBox="0 0 24 34">
-          <rect x="2" y="2" width="20" height="30" rx="4" fill="oklch(0.66 0.2 30)" stroke={ink} strokeWidth="1.8" />
-          <ellipse cx="12" cy="17" rx="6" ry="9" fill="none" stroke="oklch(0.97 0.01 90)" strokeWidth="2.2" />
+          <rect
+            x="2"
+            y="2"
+            width="20"
+            height="30"
+            rx="4"
+            fill="oklch(0.66 0.2 30)"
+            stroke={ink}
+            strokeWidth="1.8"
+          />
+          <ellipse
+            cx="12"
+            cy="17"
+            rx="6"
+            ry="9"
+            fill="none"
+            stroke="oklch(0.97 0.01 90)"
+            strokeWidth="2.2"
+          />
         </svg>
       );
   }
@@ -52,7 +113,10 @@ function Shape({ kind, s }: { kind: Bit["kind"]; s: number }) {
 
 export function Sparkles({ className = "" }: { className?: string }) {
   return (
-    <div className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`} aria-hidden>
+    <div
+      className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}
+      aria-hidden
+    >
       {BITS.map((b, i) => (
         <div
           key={i}

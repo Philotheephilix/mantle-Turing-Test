@@ -1,9 +1,9 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import type { Address, Hex } from "@steamlink/types";
 import { storeGrant } from "@/lib/monopoly/game-backend";
 import { jsonResponse } from "@/lib/monopoly/json-response";
+import type { Address, Hex } from "@steamlink/types";
 
 /**
  * /api/grant — store a player's MetaMask ERC-7715 spend authorization.

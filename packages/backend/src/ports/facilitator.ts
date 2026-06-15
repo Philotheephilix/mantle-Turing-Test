@@ -79,7 +79,7 @@ export class StubFacilitator implements FacilitatorAdapter {
       token,
       tokenSymbol: req.token,
       recipient: req.recipient,
-      chain: "base",
+      chain: "mantle",
       nonce,
       expiresAt: Date.now() + 5 * 60_000,
       facilitator: "nexus",

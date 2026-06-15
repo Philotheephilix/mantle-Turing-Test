@@ -19,17 +19,17 @@ export interface DeployOptions {
 }
 
 /**
- * `nexus deploy --network <base-sepolia|base>` — read the manifest and invoke
+ * `nexus deploy --network <mantle-sepolia|mantle>` — read the manifest and invoke
  * the foundry deploy (forge script), then print/record the deployed addresses.
  *
- * Requires `PRIVATE_KEY` (a funded deployer) and a Base RPC URL in env
- * (`BASE_RPC_URL` / `BASE_SEPOLIA_RPC_URL`, else the public default).
+ * Requires `PRIVATE_KEY` (a funded deployer) and a Mantle RPC URL in env
+ * (`MANTLE_RPC_URL` / `MANTLE_SEPOLIA_RPC_URL`, else the public default).
  */
 export function deployCommand(opts: DeployOptions): void {
   const cwd = opts.cwd ?? process.cwd();
   const network = opts.network;
   if (!isChainKey(network)) {
-    throw new CliError(`Nexus is Base-only. --network must be "base" or "base-sepolia".`);
+    throw new CliError(`Nexus is Mantle-only. --network must be "mantle" or "mantle-sepolia".`);
   }
   const chain = CHAINS[network];
 
@@ -46,8 +46,10 @@ export function deployCommand(opts: DeployOptions): void {
   // Deployer key + RPC come from env (never relayer/Lit secrets).
   const privateKey = process.env.PRIVATE_KEY?.trim();
   const rpcUrl =
-    (network === "base" ? process.env.BASE_RPC_URL : process.env.BASE_SEPOLIA_RPC_URL)?.trim() ||
-    chain.defaultRpcUrl;
+    (network === "mantle"
+      ? process.env.MANTLE_RPC_URL
+      : process.env.MANTLE_SEPOLIA_RPC_URL
+    )?.trim() || chain.defaultRpcUrl;
 
   if (opts.dryRun) {
     log.warn("dry-run: simulating, deploying nothing");
@@ -57,12 +59,12 @@ export function deployCommand(opts: DeployOptions): void {
 
   if (!privateKey) {
     throw new CliError(
-      "PRIVATE_KEY is not set. Export a funded deployer key (and a Base RPC URL) before deploying.",
+      "PRIVATE_KEY is not set. Export a funded deployer key (and a Mantle RPC URL) before deploying.",
     );
   }
   if (!opts.yes) {
     log.warn(
-      `Deploying to ${chain.name}${network === "base" ? " MAINNET" : ""}. Re-run with --yes to confirm in CI.`,
+      `Deploying to ${chain.name}${network === "mantle" ? " MAINNET" : ""}. Re-run with --yes to confirm in CI.`,
     );
   }
 

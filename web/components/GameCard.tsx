@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { motion, useMotionValue, useSpring } from "framer-motion";
 import type { GameAccent, GameEntry } from "@/lib/games";
+import { motion, useMotionValue, useSpring } from "framer-motion";
+import Link from "next/link";
 
 /** Per-accent class bundles. Literal strings so Tailwind keeps them. */
 const ACCENT: Record<GameAccent, { tile: string; chip: string; glow: string }> = {
@@ -49,12 +49,20 @@ export function GameCard({ game }: { game: GameEntry }) {
         className="sticker group relative flex h-full flex-col overflow-hidden rounded-chunk bg-paper p-5"
       >
         {/* shine sweep */}
-        <span className="pointer-events-none absolute inset-0 -translate-x-[150%] skew-x-12 bg-gradient-to-r from-transparent via-white/35 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-[150%]" aria-hidden />
+        <span
+          className="pointer-events-none absolute inset-0 -translate-x-[150%] skew-x-12 bg-gradient-to-r from-transparent via-white/35 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-[150%]"
+          aria-hidden
+        />
         {/* corner glow */}
-        <div className={`pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full blur-2xl ${a.glow}`} aria-hidden />
+        <div
+          className={`pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full blur-2xl ${a.glow}`}
+          aria-hidden
+        />
 
         <div className="mb-5 flex items-start justify-between">
-          <span className={`grid h-14 w-14 place-items-center rounded-2xl border-[2.5px] border-ink font-display text-2xl font-extrabold shadow-sticker-sm transition-transform duration-200 group-hover:-rotate-6 group-hover:scale-110 ${a.tile}`}>
+          <span
+            className={`grid h-14 w-14 place-items-center rounded-2xl border-[2.5px] border-ink font-display text-2xl font-extrabold shadow-sticker-sm transition-transform duration-200 group-hover:-rotate-6 group-hover:scale-110 ${a.tile}`}
+          >
             {game.monogram}
           </span>
           <span className="rounded-full border-[2px] border-ink bg-paper px-3 py-1 text-[11px] font-semibold uppercase tracking-wide">
@@ -67,7 +75,10 @@ export function GameCard({ game }: { game: GameEntry }) {
 
         <div className="mt-5 flex flex-wrap gap-1.5">
           {game.tags.map((tag) => (
-            <span key={tag} className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${a.chip}`}>
+            <span
+              key={tag}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${a.chip}`}
+            >
               {tag}
             </span>
           ))}
@@ -78,7 +89,13 @@ export function GameCard({ game }: { game: GameEntry }) {
           <span className="inline-flex items-center gap-1 text-ink transition-transform group-hover:translate-x-0.5">
             Play
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path d="M3 8h9M8 4l4 4-4 4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M3 8h9M8 4l4 4-4 4"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </span>
         </div>

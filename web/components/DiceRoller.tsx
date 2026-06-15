@@ -1,17 +1,42 @@
 "use client";
 
+import { fireConfettiFrom } from "@/lib/confetti";
 import { motion, useAnimationControls } from "framer-motion";
 import { useState } from "react";
-import { fireConfettiFrom } from "@/lib/confetti";
 
 /** Pip layouts for faces 1–6 on a 100×100 die face. */
 const FACES: Record<number, [number, number][]> = {
   1: [[50, 50]],
-  2: [[28, 28], [72, 72]],
-  3: [[28, 28], [50, 50], [72, 72]],
-  4: [[28, 28], [72, 28], [28, 72], [72, 72]],
-  5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
-  6: [[28, 26], [72, 26], [28, 50], [72, 50], [28, 74], [72, 74]],
+  2: [
+    [28, 28],
+    [72, 72],
+  ],
+  3: [
+    [28, 28],
+    [50, 50],
+    [72, 72],
+  ],
+  4: [
+    [28, 28],
+    [72, 28],
+    [28, 72],
+    [72, 72],
+  ],
+  5: [
+    [28, 28],
+    [72, 28],
+    [50, 50],
+    [28, 72],
+    [72, 72],
+  ],
+  6: [
+    [28, 26],
+    [72, 26],
+    [28, 50],
+    [72, 50],
+    [28, 74],
+    [72, 74],
+  ],
 };
 
 const INK = "oklch(0.245 0.03 55)";
@@ -27,7 +52,7 @@ export function DiceRoller() {
     setRolling(true);
     const btn = e.currentTarget;
     // shuffle faces for a beat
-    let ticks = 0;
+    const ticks = 0;
     const shuffle = setInterval(() => setFace(1 + Math.floor(Math.random() * 6)), 80);
     await controls.start({
       rotate: [0, 90, 200, 320, 360],
@@ -48,7 +73,11 @@ export function DiceRoller() {
       aria-label={`Dice showing ${face}. Click to roll.`}
       className="group inline-flex flex-col items-center gap-2"
     >
-      <motion.span animate={controls} className="block sticker rounded-2xl bg-paper p-1" style={{ lineHeight: 0 }}>
+      <motion.span
+        animate={controls}
+        className="block sticker rounded-2xl bg-paper p-1"
+        style={{ lineHeight: 0 }}
+      >
         <svg width="76" height="76" viewBox="0 0 100 100">
           <rect x="4" y="4" width="92" height="92" rx="20" fill="oklch(0.97 0.01 90)" />
           {FACES[face].map(([cx, cy], i) => (

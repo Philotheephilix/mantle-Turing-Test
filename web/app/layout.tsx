@@ -3,9 +3,9 @@ import "./globals.css";
 import { WalletProvider } from "@/components/wallet/WalletProvider";
 
 export const metadata: Metadata = {
-  title: "Steamlink — gasless onchain games on Base",
+  title: "Steamlink — gasless onchain games on Mantle",
   description:
-    "Play onchain games, gasless. Sign once, then every move and every USDC bet runs without a wallet popup. Real games, real stakes, zero gas. Built on Base.",
+    "Play onchain games, gasless. Sign once, then every move and every USDC bet runs without a wallet popup. Real games, real stakes, zero gas. Built on Mantle.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

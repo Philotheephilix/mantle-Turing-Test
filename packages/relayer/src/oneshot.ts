@@ -37,7 +37,7 @@ export interface OneShotRelayerConfig {
   apiKey: string;
   /** 1Shot API secret used for request auth and webhook signature verification. */
   apiSecret: string;
-  /** Base URL of the 1Shot Permissionless Relayer API, e.g. "https://api.1shotapi.com/v1". */
+  /** Mantle URL of the 1Shot Permissionless Relayer API, e.g. "https://api.1shotapi.com/v1". */
   endpoint: string;
   /**
    * Where 1Shot should POST terminal status. When present the adapter is

@@ -124,7 +124,7 @@ export interface IngestResult {
 
 /** Optional on-chain settlement dependencies for charge confirmation (C1). */
 export interface WebhookSettlementDeps {
-  /** The facilitator whose `verify()` confirms a charge settled on Base. */
+  /** The facilitator whose `verify()` confirms a charge settled on Mantle. */
   facilitator: FacilitatorAdapter;
   /** Relayer capabilities (or resolver) — reserved for token/finality context. */
   capabilities?: RelayerCapabilities | (() => Promise<RelayerCapabilities>);

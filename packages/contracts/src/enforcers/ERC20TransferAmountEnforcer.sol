@@ -36,7 +36,8 @@ contract ERC20TransferAmountEnforcer is CaveatEnforcerBase {
         address
     ) external override {
         (address token, uint256 lifetimeCap) = abi.decode(terms, (address, uint256));
-        (address target,, bytes calldata callData) = _decodeExecution(executionCalldata);
+        (address target, uint256 value, bytes calldata callData) = _decodeExecution(executionCalldata);
+        _requireNoValue(value);
 
         if (target != token) revert ERC20TransferAmountExceeded();
         if (callData.length < 4) revert ERC20TransferAmountExceeded();

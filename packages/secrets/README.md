@@ -52,7 +52,7 @@ The Port and shared types:
 
 - **`SecretsAdapter`** — the swappable boundary: `seal`, `reveal`, `verify`.
 - **`Sealed`** — a sealed blob (ciphertext + on-chain `commitment` + its conditions).
-- **`AccessCondition`** — a single Base-only access-control clause.
+- **`AccessCondition`** — a single Mantle-only access-control clause.
 - **`AuthContext`**, **`MoveClaim`**, **`Attestation`**, **`Bytes`**, **`Comparator`**, **`LitNetwork`**, **`SecretsChain`** — the rest of the shared shapes.
 
 Named-policy helpers (write conditions by name instead of by hand):
@@ -88,7 +88,7 @@ const hand = [{ color: 0, value: 5 }];
 // Only the address that ownerOf this hand may decrypt.
 const conditions: AccessCondition[] = [
   {
-    chain: "base-sepolia",
+    chain: "mantle-sepolia",
     method: "ownerOf",
     returns: { comparator: "=", value: ":userAddress" },
   },
@@ -118,8 +118,8 @@ typed `REVEAL_DENIED` error — the predicate fails closed.
   against in-process state.
 - **`LitSecrets`** — use in production. The key never lives in one place: it is
   split across the Lit threshold network, and the Lit nodes evaluate the access
-  conditions against Base directly. No single party can release a secret on its own.
+  conditions against Mantle directly. No single party can release a secret on its own.
 
 ## Part of Nexus
 
-Part of the Nexus onchain turn-based game engine SDK. **Base only.**
+Part of the Nexus onchain turn-based game engine SDK. **Mantle only.**

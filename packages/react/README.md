@@ -10,7 +10,7 @@ optimistic updates the instant a player acts, and reconcile against the truth
 when the relayer webhook lands. Enforcer rejections never surface as raw reverts
 — they come back as typed `NexusError`s (e.g. `NOT_YOUR_TURN`, `BUDGET_EXCEEDED`).
 
-Built for Base, one delegation per player per room: the only wallet prompt in the
+Built for Mantle, one delegation per player per room: the only wallet prompt in the
 whole UI lives in `join` — every move and charge after that is gasless.
 
 ## Install
@@ -31,7 +31,7 @@ import { NexusProvider } from "@steamlink/react";
 import type { NexusClientConfig } from "@steamlink/react";
 
 const config: NexusClientConfig = {
-  chain: "base",
+  chain: "mantle",
   world: "0x…", // deployed World address
   addresses, // DeploymentAddresses: delegation manager + enforcers
   signer, // viem LocalAccount (smart-account owner); optional for read-only/SSR
@@ -104,4 +104,4 @@ On-chain truth always wins — enforcer rejections surface as typed `NexusError`
 
 - [`@steamlink/core`](../core) — game definition, ECS, client, delegation engine.
 
-Base only. `chain` is strictly `"base"`.
+Mantle only. `chain` is strictly `"mantle"`.

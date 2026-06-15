@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 
 export type NavGroup = { group: string; items: { id: string; label: string }[] };
 export type DocTab = { key: string; label: string; sub: string };
@@ -91,7 +91,9 @@ export function DocsShell({
                       : "bg-paper text-ink shadow-sticker-sm hover:-translate-y-0.5"
                   }`}
                 >
-                  <div className="text-sm font-extrabold leading-tight sm:text-base">{tab.label}</div>
+                  <div className="text-sm font-extrabold leading-tight sm:text-base">
+                    {tab.label}
+                  </div>
                   <div className={`text-xs font-medium ${on ? "text-paper/80" : "text-ink-soft"}`}>
                     {tab.sub}
                   </div>
@@ -119,9 +121,7 @@ export function DocsShell({
                         <button
                           onClick={() => go(item.id)}
                           className={`block w-full rounded-lg px-2 py-1.5 text-left text-sm font-semibold transition-colors ${
-                            on
-                              ? "bg-ink text-paper"
-                              : "text-ink-soft hover:bg-ink/5 hover:text-ink"
+                            on ? "bg-ink text-paper" : "text-ink-soft hover:bg-ink/5 hover:text-ink"
                           }`}
                         >
                           {item.label}

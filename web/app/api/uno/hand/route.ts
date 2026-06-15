@@ -1,9 +1,9 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import type { Address } from "@steamlink/types";
 import { revealHand } from "@/lib/uno/game-backend";
 import { jsonResponse } from "@/lib/uno/json-response";
+import type { Address } from "@steamlink/types";
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { player?: Address };

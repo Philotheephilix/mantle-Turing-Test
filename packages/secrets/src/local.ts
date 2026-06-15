@@ -12,7 +12,7 @@
  *    the Lit threshold network (>2/3 of nodes must cooperate to release it).
  *  - Condition evaluation: LocalSecrets checks conditions with an injected
  *    predicate against in-process state. LitSecrets has Lit nodes evaluate the
- *    conditions against Base directly.
+ *    conditions against Mantle directly.
  *  - Attestation signer: LocalSecrets signs with a local dev key. LitSecrets'
  *    attestation is signed by the Lit Action's PKP inside the node TEE.
  *
@@ -43,7 +43,7 @@ import type {
  * the sealed blob's conditions and the caller's auth context (including any
  * injected game `state`) and returns true iff decryption is permitted.
  *
- * This is the local stand-in for "Lit nodes evaluate conditions against Base".
+ * This is the local stand-in for "Lit nodes evaluate conditions against Mantle".
  */
 export type ConditionPredicate = (
   conditions: AccessCondition[],

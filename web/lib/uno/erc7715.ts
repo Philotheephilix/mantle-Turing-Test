@@ -9,7 +9,7 @@
  * intent.
  *
  * Flow (mirrors /tmp/sip402/apps/demo/app/page.tsx ~345-395):
- *   1. Connect MetaMask, ensure Base Sepolia.
+ *   1. Connect MetaMask, ensure Mantle Sepolia.
  *   2. createWalletClient(...).extend(erc7715ProviderActions()).
  *   3. requestExecutionPermissions([{ chainId, expiry, to: <relayer/redeemer>,
  *        permission: { type: "erc20-token-periodic", data: { tokenAddress: USDC,
@@ -27,11 +27,11 @@
  */
 import type { Address, Hex } from "@steamlink/types";
 import { createWalletClient, custom, parseUnits } from "viem";
-import { baseSepolia } from "viem/chains";
+import { mantleSepoliaTestnet } from "viem/chains";
 import { erc7715ProviderActions } from "@metamask/smart-accounts-kit/actions";
 import { deployment, RELAYER_ADDRESS } from "./deployment";
 
-const CHAIN_ID = 84532;
+const CHAIN_ID = 5003;
 
 /**
  * The daily USDC spend cap exposed in MetaMask's popup. 1 USDC/day comfortably
@@ -63,8 +63,8 @@ function injected(): Eip1193 | null {
     : null;
 }
 
-/** Ensure the wallet is on Base Sepolia (0x14a34 = 84532), adding it if missing. */
-async function ensureBaseSepolia(eth: Eip1193): Promise<void> {
+/** Ensure the wallet is on Mantle Sepolia (0x14a34 = 5003), adding it if missing. */
+async function ensureMantleSepolia(eth: Eip1193): Promise<void> {
   try {
     await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x14a34" }] });
   } catch (e) {
@@ -74,10 +74,10 @@ async function ensureBaseSepolia(eth: Eip1193): Promise<void> {
         params: [
           {
             chainId: "0x14a34",
-            chainName: "Base Sepolia",
-            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-            rpcUrls: ["https://sepolia.base.org"],
-            blockExplorerUrls: ["https://sepolia.basescan.org"],
+            chainName: "Mantle Sepolia",
+            nativeCurrency: { name: "Mantle", symbol: "MNT", decimals: 18 },
+            rpcUrls: ["https://rpc.sepolia.mantle.xyz"],
+            blockExplorerUrls: ["https://sepolia.mantlescan.xyz"],
           },
         ],
       });
@@ -102,11 +102,11 @@ export async function connectMetaMaskGrant(): Promise<{ owner: Address; grant: E
   if (owner.toLowerCase() === RELAYER_ADDRESS.toLowerCase()) {
     throw new Error("That's the relayer account — switch MetaMask to a different wallet to play.");
   }
-  await ensureBaseSepolia(eth);
+  await ensureMantleSepolia(eth);
 
   const walletClient = createWalletClient({
     account: owner,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
     transport: custom(eth),
   }).extend(erc7715ProviderActions());
 

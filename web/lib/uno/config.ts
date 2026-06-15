@@ -2,7 +2,7 @@
  * SERVER-ONLY config. NEVER import this from a client component — it reads the
  * hardcoded relayer private key from examples/.shared-env.local / process.env.
  *
- * The relayer key both deploys the contracts and pays gas on Base Sepolia
+ * The relayer key both deploys the contracts and pays gas on Mantle Sepolia
  * (gasless for players). Players never see it: they log in with Privy (or the
  * dev guest wallet) and only SIGN gateway-auth requests + delegations.
  */
@@ -37,7 +37,7 @@ function envVar(key: string, fallback?: string): string {
 
 /**
  * ⚠️ TESTNET ONLY — hardcoded so the example is self-contained and runnable out of
- * the box. This is a Base Sepolia test key the project owner provided for the demo;
+ * the box. This is a Mantle Sepolia test key the project owner provided for the demo;
  * it holds only testnet ETH/USDC. ROTATE / replace before any mainnet use, and
  * never reuse it for real funds. Overridable via NEXUS_RELAYER_PRIVATE_KEY.
  */
@@ -53,13 +53,13 @@ export const RELAYER_ADDRESS = envVar(
   "NEXUS_RELAYER_ADDRESS",
   HARDCODED_RELAYER_ADDRESS,
 ) as `0x${string}`;
-export const BASE_SEPOLIA_RPC_URL = envVar("BASE_SEPOLIA_RPC_URL", "https://sepolia.base.org");
+export const MANTLE_SEPOLIA_RPC_URL = envVar("MANTLE_SEPOLIA_RPC_URL", "https://rpc.sepolia.mantle.xyz");
 export const USDC_ADDRESS = envVar(
   "USDC_ADDRESS",
-  "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "0x189BdF9e9e4FfE4AC0e8eD0479b158843Bcd0cde",
 ) as `0x${string}`;
 export const WEBHOOK_SECRET = envVar("NEXUS_WEBHOOK_SECRET", "uno-example-webhook-secret");
-export const BASE_SEPOLIA_CHAIN_ID = 84532;
+export const MANTLE_SEPOLIA_CHAIN_ID = 5003;
 
 /** Entry fee, in human USDC units. The headline x402 payment. Kept small for
  *  testnet so each funded player wallet (≈0.5 USDC) can cover the buy-in. */

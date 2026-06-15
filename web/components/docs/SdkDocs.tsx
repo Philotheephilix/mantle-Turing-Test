@@ -1,6 +1,6 @@
 import { CodeBlock } from "./CodeBlock";
-import { Section, PageTitle, H2, H3, P, Lead, C, Callout, Method, Pills, Ul, Li } from "./prose";
 import type { NavGroup } from "./DocsShell";
+import { C, Callout, H2, H3, Lead, Li, Method, P, PageTitle, Pills, Section, Ul } from "./prose";
 
 export const SDK_NAV: NavGroup[] = [
   {
@@ -51,15 +51,15 @@ export function SdkDocs() {
       <Section id="sdk-overview">
         <PageTitle kicker="SDK Reference">The Steamlink SDK</PageTitle>
         <Lead>
-          A fully onchain, turn-based game engine for <strong>Base</strong>. A player signs{" "}
+          A fully onchain, turn-based game engine for <strong>Mantle</strong>. A player signs{" "}
           <strong>one</strong> ERC-7710 delegation when they join a room; the engine redeems that
           single signature for everything after — gasless moves (no wallet popups) and x402 payments
           bounded by on-chain spend caps.
         </Lead>
         <P>
           You describe a game as <strong>data</strong> (tables — the onchain state schema) and{" "}
-          <strong>logic</strong> (systems — Solidity sources). The SDK handles cryptography, relaying,
-          and settlement. The packages:
+          <strong>logic</strong> (systems — Solidity sources). The SDK handles cryptography,
+          relaying, and settlement. The packages:
         </P>
         <Pills
           items={[
@@ -69,9 +69,9 @@ export function SdkDocs() {
             "@steamlink/types",
           ]}
         />
-        <Callout tone="rule" title="Base only">
-          <C>chain</C> is strictly <C>"base"</C>. The budget token is USDC (6 decimals). There is no
-          multi-chain abstraction — read the payment token and relayer <C>targetAddress</C> from{" "}
+        <Callout tone="rule" title="Mantle only">
+          <C>chain</C> is strictly <C>"mantle"</C>. The budget token is USDC (6 decimals). There is
+          no multi-chain abstraction — read the payment token and relayer <C>targetAddress</C> from{" "}
           <C>relayer_getCapabilities</C> and cache them; never hardcode a token.
         </Callout>
       </Section>
@@ -108,7 +108,7 @@ $ npm install @steamlink/relayer @steamlink/secrets`}
           code={`import { createNexusClient } from "@steamlink/core";
 
 const nexus = await createNexusClient({
-  chain: "base",                       // strict — Base only
+  chain: "mantle",                       // strict — Mantle only
   world: "0xWorldContractAddress",
   relayer: {
     provider: "1shot",
@@ -131,9 +131,10 @@ const nexus = await createNexusClient({
         <PageTitle kicker="@steamlink/core">Define a game</PageTitle>
         <Method signature="defineGame(def) → GameDefinition" pkg="@steamlink/core">
           The single source of truth for a game. <C>tables</C> is the onchain state schema,{" "}
-          <C>systems</C> maps a system name to its Solidity source path, and <C>economy</C> configures
-          monetization. Validates eagerly: the name must be lower-kebab/snake, there must be at least
-          one table, each table needs fields, and <C>pot.rake</C> must be a fraction in <C>[0, 1)</C>.
+          <C>systems</C> maps a system name to its Solidity source path, and <C>economy</C>{" "}
+          configures monetization. Validates eagerly: the name must be lower-kebab/snake, there must
+          be at least one table, each table needs fields, and <C>pot.rake</C> must be a fraction in{" "}
+          <C>[0, 1)</C>.
         </Method>
         <CodeBlock
           code={`import { defineGame, t } from "@steamlink/core";
@@ -171,7 +172,8 @@ export const uno = defineGame({
             <C>uno.subscribe</C>.
           </Li>
           <Li>
-            React hooks (<C>useTable</C>, <C>useTurn</C>, …) when <C>@steamlink/react</C> is present.
+            React hooks (<C>useTable</C>, <C>useTurn</C>, …) when <C>@steamlink/react</C> is
+            present.
           </Li>
         </Ul>
       </Section>
@@ -179,8 +181,8 @@ export const uno = defineGame({
       <Section id="core-t">
         <H2>The t schema DSL</H2>
         <P>
-          <C>t</C> is the field-type DSL used to declare table columns. Each field maps to a Solidity
-          type and a JS type, so codegen and the client stay in lockstep.
+          <C>t</C> is the field-type DSL used to declare table columns. Each field maps to a
+          Solidity type and a JS type, so codegen and the client stay in lockstep.
         </P>
         <CodeBlock
           code={`import { t } from "@steamlink/core";
@@ -198,9 +200,9 @@ t.bytes32    // bytes32  → \`0x\${string}\`
 const Score = { player: t.address, wins: t.uint32 };`}
         />
         <Callout tone="tip">
-          Tables and systems are referenced by name everywhere — the client, codegen, and React hooks
-          all bind to the same names. A typo is a <strong>compile-time</strong> error, not a runtime
-          one.
+          Tables and systems are referenced by name everywhere — the client, codegen, and React
+          hooks all bind to the same names. A typo is a <strong>compile-time</strong> error, not a
+          runtime one.
         </Callout>
       </Section>
 
@@ -238,13 +240,19 @@ const solidity = generateSolidityTables(manifest); // → src/codegen/Tables.sol
         <Method signature="buildBudgetCaveats(cfg) → Caveat[]" pkg="@steamlink/core">
           The budget caveat group: token, total cap, per-action cap, allowed recipients.
         </Method>
-        <Method signature="signDelegation(delegation, signer) → SignedDelegation" pkg="@steamlink/core">
+        <Method
+          signature="signDelegation(delegation, signer) → SignedDelegation"
+          pkg="@steamlink/core"
+        >
           Signs the unsigned delegation over the EIP-712 domain. Supports ECDSA EOAs and ERC-1271
           smart accounts.
         </Method>
-        <Method signature="buildMoveExecution(args) · buildChargeExecution(args)" pkg="@steamlink/core">
-          Encode a system call or an x402 charge into an <C>Execution</C> the relayer redeems against
-          the signed delegation.
+        <Method
+          signature="buildMoveExecution(args) · buildChargeExecution(args)"
+          pkg="@steamlink/core"
+        >
+          Encode a system call or an x402 charge into an <C>Execution</C> the relayer redeems
+          against the signed delegation.
         </Method>
         <Method signature="usdcToWei(amount) → bigint" pkg="@steamlink/core">
           Convert a human USDC string (e.g. <C>"5.00"</C>) to 6-decimal base units.
@@ -300,7 +308,8 @@ const signed = await signDelegation(
           Read current table state by primary key.
         </Method>
         <Method signature="game.subscribe(table, key, cb) → Unsubscribe" pkg="client">
-          Real-time updates driven by relayer webhooks → indexer events → WebSocket push. No polling.
+          Real-time updates driven by relayer webhooks → indexer events → WebSocket push. No
+          polling.
         </Method>
         <CodeBlock
           code={`const hand = await uno.query("Hand", { player: account.address });
@@ -321,14 +330,15 @@ const unsub = uno.subscribe("TurnOrder", { roomId }, (turn) => {
       <Section id="core-randomness">
         <H2>Randomness</H2>
         <P>
-          Provable fairness via Chainlink VRF, with a commit-reveal fast path. The facade picks a tier
-          per call.
+          Provable fairness via Chainlink VRF, with a commit-reveal fast path. The facade picks a
+          tier per call.
         </P>
         <Method signature="random(opts) · dice(sides, n)" pkg="@steamlink/core">
           Request randomness. <C>dice</C> is a convenience wrapper for board games.
         </Method>
         <Method signature="commitRevealCommit() · commitRevealReveal()" pkg="@steamlink/core">
-          The two halves of the commit-reveal scheme; <C>commitmentFor</C> derives the commitment hash.
+          The two halves of the commit-reveal scheme; <C>commitmentFor</C> derives the commitment
+          hash.
         </Method>
         <CodeBlock
           code={`import { dice, commitRevealCommit, commitRevealReveal } from "@steamlink/core";
@@ -343,16 +353,17 @@ const commit = commitRevealCommit(seed);  // publish commit, reveal next turn`}
       <Section id="relayer-adapters">
         <PageTitle kicker="@steamlink/relayer">Relayer adapters</PageTitle>
         <P>
-          Everything is an adapter behind a TypeScript port. The relayer submits bundles, pays gas in
-          stablecoins, and (for EOAs) bundles EIP-7702 upgrades. Game code never touches a concrete
-          provider — it talks to the <C>RelayerAdapter</C> port.
+          Everything is an adapter behind a TypeScript port. The relayer submits bundles, pays gas
+          in stablecoins, and (for EOAs) bundles EIP-7702 upgrades. Game code never touches a
+          concrete provider — it talks to the <C>RelayerAdapter</C> port.
         </P>
         <Method signature="new OneShotRelayer(config) → RelayerAdapter" pkg="@steamlink/relayer">
-          The default 1Shot Permissionless Relayer adapter (gas paid in USDC, EIP-7702 EOA upgrades).
+          The default 1Shot Permissionless Relayer adapter (gas paid in USDC, EIP-7702 EOA
+          upgrades).
         </Method>
         <Method signature="new DirectRelayer(config) → RelayerAdapter" pkg="@steamlink/relayer">
-          A direct-submission adapter for local dev / self-relaying. <C>revertDataOf</C> extracts the
-          revert reason from a failed call.
+          A direct-submission adapter for local dev / self-relaying. <C>revertDataOf</C> extracts
+          the revert reason from a failed call.
         </Method>
         <CodeBlock
           code={`import { OneShotRelayer } from "@steamlink/relayer";
@@ -370,9 +381,14 @@ const relayer = new OneShotRelayer({
 
       <Section id="relayer-capabilities">
         <H2>Capabilities</H2>
-        <Method signature="relayer.getCapabilities() → RelayerCapabilities" pkg="@steamlink/relayer">
+        <Method
+          signature="relayer.getCapabilities() → RelayerCapabilities"
+          pkg="@steamlink/relayer"
+        >
           Returns accepted payment/fee tokens and the relayer <C>targetAddress</C>. Cache these.{" "}
-          <strong>Reject a <C>targetAddress</C> mismatch before submitting a bundle.</strong>
+          <strong>
+            Reject a <C>targetAddress</C> mismatch before submitting a bundle.
+          </strong>
         </Method>
         <CodeBlock
           code={`const caps = await relayer.getCapabilities();
@@ -383,7 +399,10 @@ if (bundle.to !== caps.targetAddress) throw new Error("targetAddress mismatch");
 
       <Section id="relayer-webhooks">
         <H2>Webhooks</H2>
-        <Method signature="signWebhook(payload, secret) · relayer status events" pkg="@steamlink/relayer">
+        <Method
+          signature="signWebhook(payload, secret) · relayer status events"
+          pkg="@steamlink/relayer"
+        >
           The relayer pushes <C>OneShotWebhookPayload</C>s; verify the signature, map to an internal{" "}
           <C>StatusEvent</C>, and reconcile optimistic UI. Polling is a silent fallback only.
         </Method>
@@ -426,18 +445,18 @@ const sealedHand = await seal(handBytes, {
       <Section id="secrets-reveal">
         <H2>reveal()</H2>
         <Method signature="reveal(sealed, auth) → Bytes" pkg="@steamlink/secrets">
-          Conditionally decrypt a sealed blob. Lit checks the access conditions against the caller&apos;s{" "}
-          <C>AuthContext</C> before releasing the key shares.
+          Conditionally decrypt a sealed blob. Lit checks the access conditions against the
+          caller&apos;s <C>AuthContext</C> before releasing the key shares.
         </Method>
-        <CodeBlock code={`const handBytes = await reveal(sealedHand, { authSig });`} />
+        <CodeBlock code={"const handBytes = await reveal(sealedHand, { authSig });"} />
       </Section>
 
       <Section id="secrets-verify">
         <H2>verify()</H2>
         <Method signature="verify(sealed, claim) → Attestation" pkg="@steamlink/secrets">
-          Prove a move is legal <strong>without</strong> fully revealing the secret. Returns a signed{" "}
-          <C>Attestation</C> the on-chain verifier checks — e.g. &ldquo;this card really was in my
-          sealed hand&rdquo;.
+          Prove a move is legal <strong>without</strong> fully revealing the secret. Returns a
+          signed <C>Attestation</C> the on-chain verifier checks — e.g. &ldquo;this card really was
+          in my sealed hand&rdquo;.
         </Method>
         <CodeBlock
           code={`import { verify, isLegalMove } from "@steamlink/secrets";
@@ -453,10 +472,13 @@ const attestation = await verify(sealedHand, {
       <Section id="secrets-policies">
         <H2>Policies &amp; adapters</H2>
         <Method signature="LitSecrets · LocalSecrets" pkg="@steamlink/secrets">
-          <C>LitSecrets</C> is the default Lit-backed adapter (network-gated). <C>LocalSecrets</C> is a
-          real offline AES-256-GCM adapter for dev &amp; tests — same port, no network.
+          <C>LitSecrets</C> is the default Lit-backed adapter (network-gated). <C>LocalSecrets</C>{" "}
+          is a real offline AES-256-GCM adapter for dev &amp; tests — same port, no network.
         </Method>
-        <Method signature="defaultPolicyRegistry · defineAccessCondition · BUILTIN_POLICIES" pkg="@steamlink/secrets">
+        <Method
+          signature="defaultPolicyRegistry · defineAccessCondition · BUILTIN_POLICIES"
+          pkg="@steamlink/secrets"
+        >
           Named-policy registry plus built-in templates, so access conditions are declared once and
           reused by name.
         </Method>
@@ -477,7 +499,10 @@ setDefaultSecretsAdapter(new LocalSecrets());`}
           Apply optimistic updates, reconcile on webhook, and branch on the code — never parse a
           message string.
         </P>
-        <Method signature="class NexusError extends Error { code: NexusErrorCode }" pkg="@steamlink/types">
+        <Method
+          signature="class NexusError extends Error { code: NexusErrorCode }"
+          pkg="@steamlink/types"
+        >
           Thrown by the client and re-exported from <C>@steamlink/core</C>. Common codes:{" "}
           <C>NOT_YOUR_TURN</C>, <C>BUDGET_EXCEEDED</C>, <C>INVALID_CONFIG</C>,{" "}
           <C>SYSTEM_NOT_ALLOWED</C>.
@@ -497,7 +522,8 @@ try {
         />
         <Callout tone="note" title="Branded types">
           <C>@steamlink/types</C> also exports branded <C>Address</C> / <C>Hex</C> types and the
-          strict <C>chain</C> union, so an unchecked hex string won&apos;t slip into an address slot.
+          strict <C>chain</C> union, so an unchecked hex string won&apos;t slip into an address
+          slot.
         </Callout>
       </Section>
     </>

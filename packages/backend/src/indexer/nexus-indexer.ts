@@ -38,7 +38,7 @@ import type {
 export interface NexusIndexerConfig {
   /** Postgres connection string. */
   databaseUrl: string;
-  /** Base RPC websocket URL — used by the subscriber/backfill only, never on the read path. */
+  /** Mantle RPC websocket URL — used by the subscriber/backfill only, never on the read path. */
   rpcUrl: string;
   /** World deploy block — the backfill floor. */
   deployBlock: number;

@@ -1,12 +1,16 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import type { Address } from "@steamlink/types";
 import { ensureGame } from "@/lib/uno/game-backend";
 import { jsonResponse } from "@/lib/uno/json-response";
+import type { Address } from "@steamlink/types";
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => ({}))) as { human?: Address; bots?: Address[]; fee?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    human?: Address;
+    bots?: Address[];
+    fee?: string;
+  };
   if (!body.human || !Array.isArray(body.bots)) {
     return jsonResponse({ ok: false, error: "human + bots required" }, 400);
   }

@@ -4,7 +4,7 @@
  * authoritative backend rules engine (lib/monopoly-rules.ts), the UI, and the bots.
  *
  * In-game money is denominated in plain dollars (integers). A small fixed scale maps
- * in-game dollars → micro-USDC for the REAL x402 charges on Base Sepolia (see
+ * in-game dollars → micro-USDC for the REAL x402 charges on Mantle Sepolia (see
  * DOLLAR_TO_USDC): a real but tiny on-chain payment. The pot/payout is real USDC.
  */
 

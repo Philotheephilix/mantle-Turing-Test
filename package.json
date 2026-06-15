@@ -2,7 +2,7 @@
   "name": "nexus",
   "private": true,
   "version": "0.0.0",
-  "description": "Fully onchain turn-based game engine SDK for Base — one ERC-7710 delegation powers gasless gameplay and x402 monetization.",
+  "description": "Fully onchain turn-based game engine SDK for Mantle — one ERC-7710 delegation powers gasless gameplay and x402 monetization.",
   "type": "module",
   "packageManager": "pnpm@11.0.9",
   "engines": {

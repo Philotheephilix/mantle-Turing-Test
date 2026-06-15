@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { ConfettiLayer } from "@/components/ConfettiLayer";
+import { DeveloperHome } from "@/components/DeveloperHome";
 import { EntryChooser } from "@/components/EntryChooser";
 import { GamerHome } from "@/components/GamerHome";
-import { DeveloperHome } from "@/components/DeveloperHome";
-import { PageShell } from "@/components/PageShell";
-import { ConfettiLayer } from "@/components/ConfettiLayer";
 import { InteractiveBackground } from "@/components/InteractiveBackground";
-import { readMode, writeMode, type Mode } from "@/lib/mode";
+import { PageShell } from "@/components/PageShell";
+import { type Mode, readMode, writeMode } from "@/lib/mode";
+import { AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);

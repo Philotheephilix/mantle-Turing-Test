@@ -21,7 +21,12 @@ export function Logo({
         style={{ width: size, height: size }}
       >
         <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 24 24" fill="none" aria-hidden>
-          <g transform="rotate(-45 12 12)" stroke="oklch(0.97 0.01 90)" strokeWidth="3.1" fill="none">
+          <g
+            transform="rotate(-45 12 12)"
+            stroke="oklch(0.97 0.01 90)"
+            strokeWidth="3.1"
+            fill="none"
+          >
             <rect x="2.5" y="8.4" width="11.5" height="7.2" rx="3.6" />
             <rect x="10" y="8.4" width="11.5" height="7.2" rx="3.6" />
           </g>
@@ -40,7 +45,11 @@ export function Logo({
             stroke="oklch(0.245 0.03 55)"
             strokeWidth="1.8"
             strokeLinejoin="round"
-            style={{ transformBox: "fill-box", transformOrigin: "center", animation: "twinkle 3.4s ease-in-out infinite" }}
+            style={{
+              transformBox: "fill-box",
+              transformOrigin: "center",
+              animation: "twinkle 3.4s ease-in-out infinite",
+            }}
           />
         </svg>
       </span>

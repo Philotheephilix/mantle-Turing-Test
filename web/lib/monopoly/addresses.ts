@@ -1,5 +1,5 @@
 /**
- * Load the Base Sepolia deployment (examples/monopoly/deployments/base-sepolia.json)
+ * Load the Mantle Sepolia deployment (examples/monopoly/deployments/mantle-sepolia.json)
  * into the @steamlink/core DeploymentAddresses shape used by the delegation engine and
  * the backend.
  */
@@ -26,9 +26,9 @@ function deploymentPath(): string {
     here = process.cwd();
   }
   const candidates = [
-    resolve(here, "..", "deployments", "base-sepolia.json"),
-    resolve(process.cwd(), "deployments", "base-sepolia.json"),
-    resolve(process.cwd(), "examples", "monopoly", "deployments", "base-sepolia.json"),
+    resolve(here, "..", "deployments", "mantle-sepolia.json"),
+    resolve(process.cwd(), "deployments", "mantle-sepolia.json"),
+    resolve(process.cwd(), "examples", "monopoly", "deployments", "mantle-sepolia.json"),
   ];
   for (const p of candidates) if (existsSync(p)) return p;
   throw new Error(

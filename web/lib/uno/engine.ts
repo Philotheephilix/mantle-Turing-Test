@@ -37,15 +37,15 @@ import {
   encodeFunctionData,
 } from "viem";
 import { type LocalAccount, privateKeyToAccount } from "viem/accounts";
-import { BASE_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_RPC_URL, RELAYER_PRIVATE_KEY } from "./config";
+import { MANTLE_SEPOLIA_CHAIN_ID, MANTLE_SEPOLIA_RPC_URL, RELAYER_PRIVATE_KEY } from "./config";
 import { addresses, deployment } from "./deployment";
 import { UNO_ALIAS_SYSTEM_ID } from "./game";
 
-export const baseSepolia = {
-  id: BASE_SEPOLIA_CHAIN_ID,
-  name: "Base Sepolia",
-  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [BASE_SEPOLIA_RPC_URL] } },
+export const mantleSepoliaTestnet = {
+  id: MANTLE_SEPOLIA_CHAIN_ID,
+  name: "Mantle Sepolia",
+  nativeCurrency: { name: "Mantle", symbol: "MNT", decimals: 18 },
+  rpcUrls: { default: { http: [MANTLE_SEPOLIA_RPC_URL] } },
 } as const satisfies Chain;
 
 // ── ABIs ────────────────────────────────────────────────────────────────────
@@ -230,8 +230,8 @@ export function getEngine(): Promise<UnoEngine> {
 
 async function boot(): Promise<UnoEngine> {
   const relayer = privateKeyToAccount(RELAYER_PRIVATE_KEY);
-  const publicClient = createPublicClient({ chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) }) as PublicClient;
-  const rawWallet = createWalletClient({ account: relayer, chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
+  const publicClient = createPublicClient({ chain: mantleSepoliaTestnet, transport: http(MANTLE_SEPOLIA_RPC_URL) }) as PublicClient;
+  const rawWallet = createWalletClient({ account: relayer, chain: mantleSepoliaTestnet, transport: http(MANTLE_SEPOLIA_RPC_URL) });
   // Every relayer submission goes through the retry wrapper: serialized sends,
   // fresh pending nonce + gas bump per attempt, jittered backoff on
   // underpriced/nonce/RPC errors (robust to the shared-key contention + flaky RPC).
@@ -251,7 +251,7 @@ async function boot(): Promise<UnoEngine> {
       functionName: "registerSystem",
       args: [UNO_ALIAS_SYSTEM_ID, deployment.unoGame],
       account: relayer,
-      chain: baseSepolia,
+      chain: mantleSepoliaTestnet,
     });
     await publicClient.waitForTransactionReceipt({ hash });
   }
@@ -398,7 +398,7 @@ async function submitAndConfirm(
 ): Promise<{ txHash: Hex; blockNumber: bigint; logs: { address: string; topics: readonly Hex[]; data: Hex }[] }> {
   const hash = (await e.relayerWallet.sendTransaction({
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
     to: e.addrs.delegationManager,
     data,
   })) as Hex;
@@ -490,7 +490,7 @@ export async function startTurns(e: UnoEngine, roomId: bigint, order: Address[],
     functionName: "startTurns",
     args: [roomId, order, turnBlocks],
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
   });
   await e.publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -503,7 +503,7 @@ export async function startRoom(e: UnoEngine, roomId: bigint, topColor: number, 
     functionName: "startRoom",
     args: [roomId, topColor, topValue, handCount],
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
   });
   await e.publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -517,7 +517,7 @@ export async function setTurnDirection(e: UnoEngine, roomId: bigint, direction: 
     functionName: "setDirection",
     args: [roomId, direction],
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
   });
   await e.publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -538,7 +538,7 @@ export async function randomShuffleWord(e: UnoEngine): Promise<{ word: bigint; t
     functionName: "fastRandom",
     args: [],
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
   });
   const receipt = await e.publicClient.waitForTransactionReceipt({ hash });
   const log = receipt.logs.find(
@@ -558,7 +558,7 @@ export async function dealHand(e: UnoEngine, roomId: bigint, player: Address, co
     functionName: "dealHand",
     args: [roomId, player, count],
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
   });
   await e.publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -571,7 +571,7 @@ export async function openPot(e: UnoEngine, roomId: bigint): Promise<Hex> {
     functionName: "openPot",
     args: [roomId],
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
   });
   await e.publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -584,7 +584,7 @@ export async function creditDeposit(e: UnoEngine, roomId: bigint, player: Addres
     functionName: "creditDeposit",
     args: [roomId, player, usdcToWei(amount)],
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
   });
   await e.publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -597,7 +597,7 @@ export async function settlePot(e: UnoEngine, roomId: bigint, winner: Address): 
     functionName: "settle",
     args: [roomId, winner],
     account: e.relayer,
-    chain: baseSepolia,
+    chain: mantleSepoliaTestnet,
   });
   await e.publicClient.waitForTransactionReceipt({ hash });
   return hash;

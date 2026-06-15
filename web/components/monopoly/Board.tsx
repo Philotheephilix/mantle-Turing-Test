@@ -89,15 +89,26 @@ export function Board({
     <div className="bg-paper-deep border-[2.5px] border-ink shadow-sticker-lg rounded-chunk p-2 sm:p-4">
       <div
         className="relative grid gap-[3px]"
-        style={{ gridTemplateColumns: `repeat(${SIDE}, 1fr)`, gridTemplateRows: `repeat(${SIDE}, 1fr)`, aspectRatio: "1 / 1" }}
+        style={{
+          gridTemplateColumns: `repeat(${SIDE}, 1fr)`,
+          gridTemplateRows: `repeat(${SIDE}, 1fr)`,
+          aspectRatio: "1 / 1",
+        }}
       >
         {/* center medallion */}
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-paper border-[2px] border-ink/20" style={{ gridColumn: "2 / 11", gridRow: "2 / 11" }}>
+        <div
+          className="flex flex-col items-center justify-center rounded-2xl bg-paper border-[2px] border-ink/20"
+          style={{ gridColumn: "2 / 11", gridRow: "2 / 11" }}
+        >
           <div className="text-center select-none">
-            <div className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight text-grape">NEXUS</div>
-            <div className="text-ink-faint text-[10px] sm:text-xs tracking-[0.3em] mt-1 font-semibold uppercase">Onchain Monopoly</div>
+            <div className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight text-grape">
+              NEXUS
+            </div>
+            <div className="text-ink-faint text-[10px] sm:text-xs tracking-[0.3em] mt-1 font-semibold uppercase">
+              Onchain Monopoly
+            </div>
             <div className="mt-3 text-[9px] sm:text-[10px] text-ink-faint uppercase tracking-widest">
-              Base Sepolia · gasless dice · real USDC · full rules
+              Mantle Sepolia · gasless dice · real USDC · full rules
             </div>
           </div>
         </div>
@@ -107,7 +118,8 @@ export function Board({
           const pr = properties[sp.id];
           const owner = pr?.owner ?? null;
           const here = players.filter((p) => !p.bankrupt && p.position === sp.id);
-          const isCorner = sp.kind === "go" || sp.kind === "jail" || sp.kind === "free" || sp.kind === "gotojail";
+          const isCorner =
+            sp.kind === "go" || sp.kind === "jail" || sp.kind === "free" || sp.kind === "gotojail";
           return (
             <div
               key={sp.id}
@@ -116,15 +128,25 @@ export function Board({
               style={{ gridColumn: cell.c, gridRow: cell.r }}
               title={sp.name}
             >
-              {(sp.kind === "property") && <div className="h-1.5 w-full" style={{ background: sp.color }} />}
+              {sp.kind === "property" && (
+                <div className="h-1.5 w-full" style={{ background: sp.color }} />
+              )}
               <div className="flex-1 px-0.5 py-0.5 flex flex-col justify-between min-h-0">
-                <div className={`leading-[1.05] font-semibold text-ink ${isCorner ? "text-[7px] sm:text-[8px]" : "text-[6px] sm:text-[7px]"}`}>
+                <div
+                  className={`leading-[1.05] font-semibold text-ink ${isCorner ? "text-[7px] sm:text-[8px]" : "text-[6px] sm:text-[7px]"}`}
+                >
                   {sp.name}
                 </div>
-                {sp.price != null && <div className="font-mono text-[6px] text-ink-faint">${sp.price}</div>}
+                {sp.price != null && (
+                  <div className="font-mono text-[6px] text-ink-faint">${sp.price}</div>
+                )}
               </div>
               {owner && (
-                <div className="absolute bottom-0 left-0 right-0 h-1" style={{ background: colorOf(owner) }} data-testid={`owned-${sp.id}`} />
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-1"
+                  style={{ background: colorOf(owner) }}
+                  data-testid={`owned-${sp.id}`}
+                />
               )}
               {pr && pr.houses > 0 && (
                 <div className="absolute top-0 right-0 px-0.5 text-[6px] font-bold text-paper bg-grass rounded-bl">
@@ -132,7 +154,9 @@ export function Board({
                 </div>
               )}
               {pr?.mortgaged && (
-                <div className="absolute top-0 left-0 px-0.5 text-[6px] font-bold text-paper bg-berry rounded-br">M</div>
+                <div className="absolute top-0 left-0 px-0.5 text-[6px] font-bold text-paper bg-berry rounded-br">
+                  M
+                </div>
               )}
               {here.length > 0 && (
                 <div className="absolute inset-x-0 bottom-0 flex items-end justify-center gap-[1px] pb-[1px] pointer-events-none z-20">

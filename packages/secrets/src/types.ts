@@ -20,23 +20,23 @@ export type Bytes = Uint8Array;
 export type LitNetwork = "datil" | "datil-test";
 
 /**
- * The chain an access condition is evaluated against. Nexus is Base-only by
- * design — the only permitted values are Base mainnet and Base Sepolia. Anything
+ * The chain an access condition is evaluated against. Nexus is Mantle-only by
+ * design — the only permitted values are Mantle mainnet and Mantle Sepolia. Anything
  * else is rejected at seal time and at policy registration (convention guard).
  */
-export type SecretsChain = "base" | "base-sepolia";
+export type SecretsChain = "mantle" | "mantle-sepolia";
 
 /** Comparators Lit supports for a returned value. */
 export type Comparator = "=" | ">" | ">=" | "<" | "<=" | "!=";
 
 /**
- * A single Base-only access-control clause (design §8.1 canonical shape).
+ * A single Mantle-only access-control clause (design §8.1 canonical shape).
  * `parameters` may carry substitution tokens (`:userAddress`, `:handId`, …)
  * resolved by the coordinator against the authenticated request before the
  * condition is handed to Lit.
  */
 export type AccessCondition = {
-  /** Strict — Base only, never another chain. */
+  /** Strict — Mantle only, never another chain. */
   chain: SecretsChain;
   /** e.g. "ownerOf", "balanceOf", a World view, or an event check. */
   method: string;

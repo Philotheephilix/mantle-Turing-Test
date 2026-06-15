@@ -5,7 +5,7 @@ import { config as loadDotenv } from "dotenv";
 import { CHAINS, type ChainKey, isChainKey } from "@nexus/types";
 import { type Chain, createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { base, baseSepolia } from "viem/chains";
+import { mantle, mantleSepoliaTestnet } from "viem/chains";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..");
@@ -49,14 +49,14 @@ function optionalKey(name: string): `0x${string}` | undefined {
 }
 
 export function loadEnv(): NexusEnv {
-  const chainKey = (process.env.CHAIN ?? "base-sepolia").trim();
+  const chainKey = (process.env.CHAIN ?? "mantle-sepolia").trim();
   if (!isChainKey(chainKey)) {
-    throw new Error(`CHAIN must be "base" or "base-sepolia", got "${chainKey}"`);
+    throw new Error(`CHAIN must be "mantle" or "mantle-sepolia", got "${chainKey}"`);
   }
   const cfg = CHAINS[chainKey];
-  const chain = chainKey === "base" ? base : baseSepolia;
+  const chain = chainKey === "mantle" ? mantle : mantleSepoliaTestnet;
   const rpcUrl =
-    (chainKey === "base" ? process.env.BASE_RPC_URL : process.env.BASE_SEPOLIA_RPC_URL)?.trim() ||
+    (chainKey === "mantle" ? process.env.MANTLE_RPC_URL : process.env.MANTLE_SEPOLIA_RPC_URL)?.trim() ||
     cfg.defaultRpcUrl;
 
   const pk = optionalKey("PRIVATE_KEY") ?? (need("PRIVATE_KEY") as `0x${string}`);

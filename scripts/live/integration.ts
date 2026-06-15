@@ -1,7 +1,7 @@
 /**
  * The Nexus zero-mock integration suite, parameterized by target chain. The same
- * code runs against a local anvil chain (no funding needed) and against Base
- * Sepolia / Base mainnet (needs a funded relayer key). Everything here is real:
+ * code runs against a local anvil chain (no funding needed) and against Mantle
+ * Sepolia / Mantle mainnet (needs a funded relayer key). Everything here is real:
  * real contracts deployed on the target, real EIP-712 signatures, real on-chain
  * caveat enforcement. No mocks.
  */
@@ -529,17 +529,17 @@ export async function runIntegration(t: IntegrationTarget): Promise<number> {
 
   // ── x402 LIVE budget-enforcement charge tests (TEST 6–9) ───────────────────
   // Real USDC moves bounded by the delegation: per-action cap, recipient
-  // allowlist, lifetime cap. The PAYER is the relayer/funded account (on Base
+  // allowlist, lifetime cap. The PAYER is the relayer/funded account (on Mantle
   // Sepolia only that key holds USDC); the token is TestUSDC on anvil, canonical
-  // USDC on Base. A charge-specific DeploymentAddresses points the engine at the
+  // USDC on Mantle. A charge-specific DeploymentAddresses points the engine at the
   // right token so caveats + transferFrom target it.
   // On a live chain use the CANONICAL USDC (addrs.usdc is 0x0 — the counter game
   // doesn't use a token); on a local chain use the deployed TestUSDC.
   const canonicalUsdc =
-    t.chainId === 84532
-      ? (CHAINS["base-sepolia"].usdc as Address)
-      : t.chainId === 8453
-        ? (CHAINS.base.usdc as Address)
+    t.chainId === 5003
+      ? (CHAINS["mantle-sepolia"].usdc as Address)
+      : t.chainId === 5000
+        ? (CHAINS.mantle.usdc as Address)
         : undefined;
   const usdcForCharge: Address = canonicalUsdc ?? d.testUsdc;
   const chargeAddrs: DeploymentAddresses = { ...addrs, usdc: usdcForCharge };

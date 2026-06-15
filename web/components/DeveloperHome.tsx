@@ -1,24 +1,43 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { GAMES } from "@/lib/games";
+import { motion } from "framer-motion";
+import { GaslessFlow } from "./GaslessFlow";
 import { IsoTilt } from "./IsoTilt";
 import { IsoWorkbench } from "./IsoWorkbench";
+import { MagneticButton } from "./MagneticButton";
+import { Marquee } from "./Marquee";
 import { Mascot } from "./Mascot";
 import { Reveal } from "./Reveal";
-import { Marquee } from "./Marquee";
 import { SquiggleUnderline } from "./SquiggleUnderline";
-import { MagneticButton } from "./MagneticButton";
-import { GaslessFlow } from "./GaslessFlow";
 
 function Kicker({ children }: { children: React.ReactNode }) {
-  return <span className="font-display text-sm font-extrabold uppercase tracking-wider text-sky">{children}</span>;
+  return (
+    <span className="font-display text-sm font-extrabold uppercase tracking-wider text-sky">
+      {children}
+    </span>
+  );
 }
 
 const STEPS = [
-  { n: "01", t: "defineGame()", b: "Describe tables and systems in TypeScript. Codegen emits the Solidity table glue and a deploy manifest.", a: "bg-sky" },
-  { n: "02", t: "Deploy once", b: "One CLI deploys the World, systems and caveat enforcers to Base. Migrate logic without touching stored state.", a: "bg-grape" },
-  { n: "03", t: "Gasless from move one", b: "Players sign a single delegation. The relayer redeems every move and x402 charge. Zero gas for them.", a: "bg-coral" },
+  {
+    n: "01",
+    t: "defineGame()",
+    b: "Describe tables and systems in TypeScript. Codegen emits the Solidity table glue and a deploy manifest.",
+    a: "bg-sky",
+  },
+  {
+    n: "02",
+    t: "Deploy once",
+    b: "One CLI deploys the World, systems and caveat enforcers to Mantle. Migrate logic without touching stored state.",
+    a: "bg-grape",
+  },
+  {
+    n: "03",
+    t: "Gasless from move one",
+    b: "Players sign a single delegation. The relayer redeems every move and x402 charge. Zero gas for them.",
+    a: "bg-coral",
+  },
 ];
 
 const PACKAGES = [
@@ -49,7 +68,7 @@ export function DeveloperHome() {
         <div>
           <span className="inline-flex items-center gap-2 rounded-full border-[2px] border-ink bg-paper px-3 py-1 text-xs font-bold uppercase tracking-wide shadow-sticker-sm">
             <span className="h-2 w-2 rounded-full bg-sky" />
-            Onchain game engine · Base
+            Onchain game engine · Mantle
           </span>
           <h1 className="mt-6 font-display text-[clamp(2.6rem,7.5vw,5rem)] font-extrabold leading-[0.95]">
             Build onchain
@@ -57,19 +76,28 @@ export function DeveloperHome() {
             games.{" "}
             <span className="relative inline-block">
               <span className="relative z-10">One sig.</span>
-              <SquiggleUnderline className="absolute -bottom-3 left-0 h-5 w-full" color="oklch(0.64 0.15 245)" />
+              <SquiggleUnderline
+                className="absolute -bottom-3 left-0 h-5 w-full"
+                color="oklch(0.64 0.15 245)"
+              />
             </span>
           </h1>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-ink-soft">
-            A fully onchain, turn-based game engine for Base. Define a game as data and
-            Solidity, deploy with one CLI, and one ERC-7710 delegation powers gasless
-            moves plus x402 payments bounded by onchain spend caps.
+            A fully onchain, turn-based game engine for Mantle. Define a game as data and Solidity,
+            deploy with one CLI, and one ERC-7710 delegation powers gasless moves plus x402 payments
+            bounded by onchain spend caps.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <MagneticButton href="#start" className="sticker rounded-full bg-sky px-7 py-3.5 text-base font-bold text-paper">
+            <MagneticButton
+              href="#start"
+              className="sticker rounded-full bg-sky px-7 py-3.5 text-base font-bold text-paper"
+            >
               Get started
             </MagneticButton>
-            <a href="#engine" className="rounded-full px-5 py-3.5 text-base font-bold text-ink underline decoration-ink/30 decoration-2 underline-offset-4 hover:decoration-ink">
+            <a
+              href="#engine"
+              className="rounded-full px-5 py-3.5 text-base font-bold text-ink underline decoration-ink/30 decoration-2 underline-offset-4 hover:decoration-ink"
+            >
               See the engine
             </a>
           </div>
@@ -82,7 +110,7 @@ export function DeveloperHome() {
           <motion.div
             className="absolute -bottom-2 right-2 sm:right-6"
             animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 4, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
           >
             <Mascot accent="sky" width={92} />
           </motion.div>
@@ -90,7 +118,17 @@ export function DeveloperHome() {
       </section>
 
       <div className="-mx-5 sm:-mx-8">
-        <Marquee items={["defineGame()", "ERC-7710 delegation", "Gasless relayer", "x402 paywall", "Sealed state", "One CLI deploy", "Base only"]} />
+        <Marquee
+          items={[
+            "defineGame()",
+            "ERC-7710 delegation",
+            "Gasless relayer",
+            "x402 paywall",
+            "Sealed state",
+            "One CLI deploy",
+            "Mantle only",
+          ]}
+        />
       </div>
 
       {/* How it works */}
@@ -105,7 +143,9 @@ export function DeveloperHome() {
           {STEPS.map((s, i) => (
             <Reveal key={s.n} delay={i * 0.08}>
               <div className="sticker h-full rounded-chunk bg-paper p-6">
-                <span className={`grid h-12 w-12 place-items-center rounded-2xl border-[2.5px] border-ink font-display text-lg font-extrabold text-paper shadow-sticker-sm ${s.a}`}>
+                <span
+                  className={`grid h-12 w-12 place-items-center rounded-2xl border-[2.5px] border-ink font-display text-lg font-extrabold text-paper shadow-sticker-sm ${s.a}`}
+                >
                   {s.n}
                 </span>
                 <h3 className="mt-5 font-mono text-base font-bold">{s.t}</h3>
@@ -128,11 +168,16 @@ export function DeveloperHome() {
                 </h2>
               </div>
               <p className="max-w-xs text-sm text-ink-soft">
-                One ERC-7710 delegation is redeemed for every move and x402 charge. Gas is
-                paid in stablecoin by the relayer, never by the player.
+                One ERC-7710 delegation is redeemed for every move and x402 charge. Gas is paid in
+                stablecoin by the relayer, never by the player.
               </p>
             </div>
-            <GaslessFlow accent="sky" endLabel="Base settles" endKind="base" className="mt-4 w-full" />
+            <GaslessFlow
+              accent="sky"
+              endLabel="Mantle settles"
+              endKind="mantle"
+              className="mt-4 w-full"
+            />
           </div>
         </Reveal>
       </section>
@@ -148,24 +193,38 @@ export function DeveloperHome() {
                   Two caveat groups. Enforced onchain.
                 </h2>
                 <p className="mt-4 max-w-md text-[15px] leading-relaxed text-ink-soft">
-                  A player signs once. That single grant carries gameplay rules and budget
-                  rules, each compiled into concrete caveat enforcers the contracts check
-                  on every redemption.
+                  A player signs once. That single grant carries gameplay rules and budget rules,
+                  each compiled into concrete caveat enforcers the contracts check on every
+                  redemption.
                 </p>
                 <div className="mt-6 space-y-4">
                   <div>
-                    <p className="font-mono text-xs font-bold uppercase tracking-wide text-coral">Gameplay caveats</p>
+                    <p className="font-mono text-xs font-bold uppercase tracking-wide text-coral">
+                      Gameplay caveats
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {CAVEATS.gameplay.map((c) => (
-                        <span key={c} className="rounded-full border-[2px] border-ink bg-paper-deep px-2.5 py-0.5 text-[11px] font-bold">{c}</span>
+                        <span
+                          key={c}
+                          className="rounded-full border-[2px] border-ink bg-paper-deep px-2.5 py-0.5 text-[11px] font-bold"
+                        >
+                          {c}
+                        </span>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <p className="font-mono text-xs font-bold uppercase tracking-wide text-sky">Budget caveats</p>
+                    <p className="font-mono text-xs font-bold uppercase tracking-wide text-sky">
+                      Budget caveats
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {CAVEATS.budget.map((c) => (
-                        <span key={c} className="rounded-full border-[2px] border-ink bg-paper-deep px-2.5 py-0.5 text-[11px] font-bold">{c}</span>
+                        <span
+                          key={c}
+                          className="rounded-full border-[2px] border-ink bg-paper-deep px-2.5 py-0.5 text-[11px] font-bold"
+                        >
+                          {c}
+                        </span>
                       ))}
                     </div>
                   </div>
@@ -227,12 +286,16 @@ export function DeveloperHome() {
         <Reveal className="max-w-2xl">
           <Kicker>Built with Steamlink</Kicker>
           <h2 className="mt-3 font-display text-[clamp(1.8rem,4vw,2.4rem)] font-extrabold leading-tight">
-            Reference games, shipped to Base.
+            Reference games, shipped to Mantle.
           </h2>
         </Reveal>
         <div className="mt-10 flex flex-wrap gap-3">
           {GAMES.map((g) => (
-            <a key={g.slug} href={`/play/${g.slug}`} className="sticker sticker-lift rounded-full bg-paper px-5 py-2.5 text-sm font-bold">
+            <a
+              key={g.slug}
+              href={`/play/${g.slug}`}
+              className="sticker sticker-lift rounded-full bg-paper px-5 py-2.5 text-sm font-bold"
+            >
               {g.title}
             </a>
           ))}
@@ -243,7 +306,9 @@ export function DeveloperHome() {
       <section id="start" className="scroll-mt-20 py-12 sm:py-20">
         <Reveal>
           <div className="sticker rounded-chunk bg-sky p-8 text-paper sm:p-12">
-            <span className="font-display text-sm font-extrabold uppercase tracking-wider text-paper/80">Get started</span>
+            <span className="font-display text-sm font-extrabold uppercase tracking-wider text-paper/80">
+              Get started
+            </span>
             <h2 className="mt-3 font-display text-[clamp(1.8rem,4vw,2.6rem)] font-extrabold leading-tight">
               One command to scaffold a game.
             </h2>

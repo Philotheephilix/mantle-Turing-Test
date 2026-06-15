@@ -1,10 +1,10 @@
 /**
- * The deployed Base Sepolia addresses (written by scripts/deploy.sh / DeployUno).
+ * The deployed Mantle Sepolia addresses (written by scripts/deploy.sh / DeployUno).
  * Safe to import from the browser — these are public addresses only.
  */
 import type { DeploymentAddresses } from "@steamlink/core";
 import type { Address, Hex } from "@steamlink/types";
-import raw from "./deployments/base-sepolia.json" with { type: "json" };
+import raw from "./deployments/mantle-sepolia.json" with { type: "json" };
 
 export interface UnoDeployment {
   chainId: number;

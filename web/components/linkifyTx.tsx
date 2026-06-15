@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 
 const TX_RE = /(0x[0-9a-fA-F]{64})/g;
 const FULL_TX = /^0x[0-9a-fA-F]{64}$/;
-const EXPLORER = "https://sepolia.basescan.org/tx/";
+const EXPLORER = "https://sepolia.mantlescan.xyz/tx/";
 
 /**
  * Turn any 0x… transaction hash inside a free-text log line into a clickable
- * anchor that opens the Base Sepolia explorer in a new tab. Non-hash text is
+ * anchor that opens the Mantle Sepolia explorer in a new tab. Non-hash text is
  * returned verbatim. Presentational only — used by the game activity logs.
  *
  * `linkClass` lets each game pass its accent (coral for UNO, grape for Monopoly).

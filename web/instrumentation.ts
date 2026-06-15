@@ -17,6 +17,9 @@ export async function register() {
     const { startAutoGame } = await import("./lib/monopoly/auto-start");
     await startAutoGame();
   } catch (e) {
-    console.error("[instrumentation] Monopoly auto-start failed:", e instanceof Error ? e.message : e);
+    console.error(
+      "[instrumentation] Monopoly auto-start failed:",
+      e instanceof Error ? e.message : e,
+    );
   }
 }

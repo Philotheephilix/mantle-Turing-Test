@@ -14,7 +14,7 @@ import type {
   Settlement,
 } from "./ports/facilitator.js";
 
-const USDC = asAddress(CHAINS["base-sepolia"].usdc) as Hex;
+const USDC = asAddress(CHAINS["mantle-sepolia"].usdc) as Hex;
 const PAYER = asAddress("0x1111111111111111111111111111111111111111") as Hex;
 const RECIPIENT = asAddress("0x2222222222222222222222222222222222222222") as Hex;
 const TXHASH = `0x${"ab".repeat(32)}` as Hex;
@@ -32,7 +32,7 @@ function fakeFacilitator(overrides: Partial<FacilitatorAdapter> = {}): Facilitat
       token: USDC,
       tokenSymbol: "USDC",
       recipient: req.recipient,
-      chain: "base",
+      chain: "mantle",
       nonce: `0x${"11".repeat(32)}` as Hex,
       expiresAt: Date.now() + 60_000,
       facilitator: "nexus",
@@ -56,7 +56,7 @@ function fakeFacilitator(overrides: Partial<FacilitatorAdapter> = {}): Facilitat
 const OPTS = {
   price: "5",
   token: "USDC" as const,
-  chain: "base" as const,
+  chain: "mantle" as const,
   recipient: RECIPIENT,
   facilitator: "nexus" as const,
 };
@@ -80,7 +80,7 @@ describe("createMonetizeHandler", () => {
     expect(result.kind).toBe("challenge");
     if (result.kind !== "challenge") throw new Error("unreachable");
     expect(result.status).toBe(402);
-    expect(result.body).toMatchObject({ scheme: "x402", chain: "base", facilitator: "nexus" });
+    expect(result.body).toMatchObject({ scheme: "x402", chain: "mantle", facilitator: "nexus" });
     expect(fac.challenge).toHaveBeenCalledOnce();
   });
 

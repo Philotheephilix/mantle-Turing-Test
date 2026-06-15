@@ -18,7 +18,7 @@ function jsonRes(body: unknown, ok = true, status = 200) {
 }
 
 const CAPS_BODY = {
-  chains: ["base-sepolia"],
+  chains: ["mantle-sepolia"],
   tokens: { USDC },
   feeCollector: FEE,
   targetAddress: TARGET,
@@ -63,7 +63,7 @@ describe("OneShotRelayer.getCapabilities", () => {
     expect(caps.tokens.USDC).toBe(USDC);
     expect(caps.feeCollector).toBe(FEE);
     expect(caps.targetAddress).toBe(TARGET);
-    expect(caps.chains).toEqual(["base-sepolia"]);
+    expect(caps.chains).toEqual(["mantle-sepolia"]);
 
     await r.getCapabilities();
     // Second call served from cache — fetch hit exactly once.

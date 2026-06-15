@@ -13,9 +13,13 @@ export function PageTitle({ children, kicker }: { children: ReactNode; kicker?: 
   return (
     <div className="mb-2">
       {kicker && (
-        <div className="mb-2 text-sm font-extrabold uppercase tracking-wider text-coral">{kicker}</div>
+        <div className="mb-2 text-sm font-extrabold uppercase tracking-wider text-coral">
+          {kicker}
+        </div>
       )}
-      <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">{children}</h1>
+      <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
+        {children}
+      </h1>
     </div>
   );
 }
@@ -29,7 +33,9 @@ export function H2({ children }: { children: ReactNode }) {
 }
 
 export function H3({ children }: { children: ReactNode }) {
-  return <h3 className="mb-2 mt-7 font-display text-lg font-extrabold tracking-tight">{children}</h3>;
+  return (
+    <h3 className="mb-2 mt-7 font-display text-lg font-extrabold tracking-tight">{children}</h3>
+  );
 }
 
 export function P({ children }: { children: ReactNode }) {
@@ -135,7 +141,11 @@ export function Step({ n, title }: { n: number; title: string }) {
 }
 
 export function Ul({ children }: { children: ReactNode }) {
-  return <ul className="my-3 ml-1 max-w-2xl space-y-1.5 text-[15px] leading-7 text-ink-soft">{children}</ul>;
+  return (
+    <ul className="my-3 ml-1 max-w-2xl space-y-1.5 text-[15px] leading-7 text-ink-soft">
+      {children}
+    </ul>
+  );
 }
 
 export function Li({ children }: { children: ReactNode }) {

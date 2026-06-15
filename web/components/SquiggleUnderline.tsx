@@ -26,7 +26,11 @@ export function SquiggleUnderline({
         stroke={color}
         strokeWidth={9}
         strokeLinecap="round"
-        style={{ strokeDasharray: 1, strokeDashoffset: 1, animation: `draw 0.85s ${delay}s cubic-bezier(0.22,1,0.36,1) forwards` }}
+        style={{
+          strokeDasharray: 1,
+          strokeDashoffset: 1,
+          animation: `draw 0.85s ${delay}s cubic-bezier(0.22,1,0.36,1) forwards`,
+        }}
       />
     </svg>
   );

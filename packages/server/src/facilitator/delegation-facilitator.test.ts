@@ -5,13 +5,13 @@ import { describe, expect, it, vi } from "vitest";
 import { DelegationFacilitator } from "./delegation-facilitator.js";
 import type { ReceiptReaderClient, TransactionReceiptLike } from "./verify.js";
 
-const USDC = asAddress(CHAINS["base-sepolia"].usdc);
+const USDC = asAddress(CHAINS["mantle-sepolia"].usdc);
 const PAYER = asAddress("0x1111111111111111111111111111111111111111");
 const RECIPIENT = asAddress("0x2222222222222222222222222222222222222222");
 const TXHASH = `0x${"ab".repeat(32)}` as Hex;
 
 const CAPS: RelayerCapabilities = {
-  chains: ["base-sepolia"],
+  chains: ["mantle-sepolia"],
   tokens: { USDC },
   feeCollector: asAddress("0x3333333333333333333333333333333333333333"),
   targetAddress: asAddress("0x4444444444444444444444444444444444444444"),
@@ -90,7 +90,7 @@ describe("DelegationFacilitator.challenge", () => {
     });
 
     expect(a.scheme).toBe("x402");
-    expect(a.chain).toBe("base");
+    expect(a.chain).toBe("mantle");
     expect(a.facilitator).toBe("nexus");
     expect(a.token).toBe(USDC); // resolved from capabilities, not hardcoded symbol
     expect(a.tokenSymbol).toBe("USDC");

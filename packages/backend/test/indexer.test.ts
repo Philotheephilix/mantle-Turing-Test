@@ -51,7 +51,7 @@ function turnOrderLog(
 async function startIndexer() {
   const ix = new InMemoryIndexer();
   await ix.start({
-    chain: "base",
+    chain: "mantle",
     world: `0x${"00".repeat(20)}`,
     games: allIndexerSchemas(new Map([["uno", uno]])),
   });

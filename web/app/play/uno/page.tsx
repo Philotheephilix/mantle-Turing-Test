@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Card, colorName } from "@/components/uno/Card";
-import { UnoClient, type GameView } from "@/lib/uno/uno-client";
-import { type UnoCard, type TopState, isWildCard } from "@/lib/uno/uno-rules";
-import { hasInjectedWallet } from "@/lib/wallet";
-import { useWallet } from "@/components/wallet/WalletProvider";
 import { linkifyTx } from "@/components/linkifyTx";
+import { Card, colorName } from "@/components/uno/Card";
+import { useWallet } from "@/components/wallet/WalletProvider";
 import { POT_ADDRESS, addresses as unoAddresses } from "@/lib/uno/deployment";
+import { type GameView, UnoClient } from "@/lib/uno/uno-client";
+import { type TopState, type UnoCard, isWildCard } from "@/lib/uno/uno-rules";
+import { hasInjectedWallet } from "@/lib/wallet";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const UNO_MANAGER = unoAddresses.delegationManager;
 
@@ -59,21 +59,30 @@ export default function Home() {
   // When connected, advance to the lobby; once an ERC-7715 grant exists, store it
   // with the UNO backend (redeemed at buy-in via the canonical DelegationManager).
   useEffect(() => {
-    if (account && (phase === "connect")) setPhase("waiting");
+    if (account && phase === "connect") setPhase("waiting");
   }, [account, phase]);
   useEffect(() => {
     if (!account || !grant || grantStoredRef.current) return;
     grantStoredRef.current = true;
     void new UnoClient(BACKEND_URL, account)
       .grantSpend(grant)
-      .then((r) => addLog(r.ok ? `spend permission stored — up to ${grant.capUsd} USDC/day` : `grant store failed: ${r.error}`))
+      .then((r) =>
+        addLog(
+          r.ok
+            ? `spend permission stored — up to ${grant.capUsd} USDC/day`
+            : `grant store failed: ${r.error}`,
+        ),
+      )
       .catch((e) => addLog(`grant store failed: ${e instanceof Error ? e.message : String(e)}`));
   }, [account, grant, addLog]);
 
   const connectWith = useCallback(
     async (mode: "metamask" | "guest") => {
       const c = await wallet.connect(mode);
-      if (c) addLog(`connected ${c.kind === "metamask" ? "MetaMask Smart Account" : "guest wallet"} ${short(c.account.address)}`);
+      if (c)
+        addLog(
+          `connected ${c.kind === "metamask" ? "MetaMask Smart Account" : "guest wallet"} ${short(c.account.address)}`,
+        );
       if (wallet.error) setError(wallet.error);
     },
     [wallet, addLog],
@@ -117,7 +126,9 @@ export default function Home() {
   const board: TopState = view ? view.board : { topColor: 1, topValue: 5, activeColor: 1 };
 
   const turnIsMine = Boolean(
-    account && view?.currentTurn && view.currentTurn.toLowerCase() === account.address.toLowerCase(),
+    account &&
+      view?.currentTurn &&
+      view.currentTurn.toLowerCase() === account.address.toLowerCase(),
   );
   const myTurn = turnIsMine && !awaitingAdvance;
 
@@ -139,7 +150,9 @@ export default function Home() {
         const st = await client.state();
         if (!alive || !st.ok) return;
         setView(st);
-        const seat = account && st.seats.find((s) => s.address.toLowerCase() === account.address.toLowerCase());
+        const seat =
+          account &&
+          st.seats.find((s) => s.address.toLowerCase() === account.address.toLowerCase());
         if (seat) {
           setPhase((p) => {
             if (st.winner) return "done";
@@ -173,7 +186,14 @@ export default function Home() {
     return () => {
       alive = false;
     };
-  }, [client, phase, view?.board?.topColor, view?.board?.topValue, view?.board?.activeColor, view?.currentTurn]);
+  }, [
+    client,
+    phase,
+    view?.board?.topColor,
+    view?.board?.topValue,
+    view?.board?.activeColor,
+    view?.currentTurn,
+  ]);
 
   useEffect(() => {
     if (view?.winner) setPhase("done");
@@ -225,7 +245,9 @@ export default function Home() {
       setBusy(true);
       setError(null);
       try {
-        const label = isWildCard(card) ? `wild → ${colorName(chosenColor)}` : `${colorName(card.color)} ${card.value <= 9 ? card.value : "action"}`;
+        const label = isWildCard(card)
+          ? `wild → ${colorName(chosenColor)}`
+          : `${colorName(card.color)} ${card.value <= 9 ? card.value : "action"}`;
         addLog(`playing ${label} (gasless move)…`);
         const res = await client.move(view.roomId, "play", card, chosenColor);
         if (!res.ok || !res.txHash) throw new Error(res.error ?? "move rejected");
@@ -270,7 +292,9 @@ export default function Home() {
       addLog("drawing a card (gasless move)…");
       const res = await client.move(view.roomId, "draw");
       if (!res.ok || !res.txHash) throw new Error(res.error ?? "draw rejected");
-      addLog(`drew — ${res.playable ? "playable, your turn continues" : "passed"} — tx ${res.txHash}`);
+      addLog(
+        `drew — ${res.playable ? "playable, your turn continues" : "passed"} — tx ${res.txHash}`,
+      );
       if (!res.playable) setAwaitingAdvance(true);
       const r = await client.hand().catch(() => null);
       if (r?.ok) {
@@ -315,14 +339,13 @@ export default function Home() {
             <span className="text-ink-soft text-2xl font-bold">by Nexus</span>
           </h1>
           <p className="mt-1 text-sm font-medium text-ink-faint">
-            Full official ruleset · 108-card deck · gasless moves · x402 entry · sealed hands · on-chain shuffle · Base Sepolia
+            Full official ruleset · 108-card deck · gasless moves · x402 entry · sealed hands ·
+            on-chain shuffle · Mantle Sepolia
           </p>
         </div>
         {account ? (
           <div className="flex items-center gap-2">
-            <span
-              className="rounded-full border-[2px] border-ink bg-paper-deep px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-soft"
-            >
+            <span className="rounded-full border-[2px] border-ink bg-paper-deep px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-soft">
               {conn?.kind === "metamask" ? "Smart Account" : "Guest"}
             </span>
             <button
@@ -357,10 +380,13 @@ export default function Home() {
               <span className="grid h-20 w-20 place-items-center rounded-2xl border-[2.5px] border-ink bg-coral font-display text-4xl font-extrabold text-paper shadow-sticker">
                 UN
               </span>
-              <h2 className="font-display text-2xl font-extrabold text-ink">Sit down at the table</h2>
+              <h2 className="font-display text-2xl font-extrabold text-ink">
+                Sit down at the table
+              </h2>
               <p className="max-w-md text-[15px] leading-relaxed text-ink-soft">
                 Connect <b>MetaMask</b> to join a real game of UNO against the bots — you sign one
-                delegation, then every move is gasless. Bring a little Base-Sepolia USDC for the entry fee.
+                delegation, then every move is gasless. Bring a little Mantle-Sepolia USDC for the
+                entry fee.
               </p>
               <button
                 type="button"
@@ -388,7 +414,8 @@ export default function Home() {
                 Looking for your seat at the table…
               </p>
               <p className="max-w-sm text-xs text-ink-faint">
-                If no game is waiting for your wallet, start a fresh one — you&apos;ll be seated against the bots.
+                If no game is waiting for your wallet, start a fresh one — you&apos;ll be seated
+                against the bots.
               </p>
               <button
                 type="button"
@@ -406,11 +433,16 @@ export default function Home() {
             <div className="flex min-h-[420px] flex-col items-center justify-center gap-6 text-center">
               <h2 className="font-display text-2xl font-extrabold text-ink">Buy in to the pot</h2>
               <p className="max-w-md text-[15px] leading-relaxed text-ink-soft">
-                The entry fee is <b>{view?.fee ?? "1"} USDC</b>, paid as a real x402 charge from <b>your</b> wallet to the
-                Pot at {short(POT_ADDRESS)} —{" "}
-                {grant
-                  ? <>bounded by your MetaMask spend permission (<b>{grant.capUsd} USDC/day</b>), redeemed via the canonical DelegationManager.</>
-                  : <>bounded on-chain by your budget delegation.</>}
+                The entry fee is <b>{view?.fee ?? "1"} USDC</b>, paid as a real x402 charge from{" "}
+                <b>your</b> wallet to the Pot at {short(POT_ADDRESS)} —{" "}
+                {grant ? (
+                  <>
+                    bounded by your MetaMask spend permission (<b>{grant.capUsd} USDC/day</b>),
+                    redeemed via the canonical DelegationManager.
+                  </>
+                ) : (
+                  <>bounded on-chain by your budget delegation.</>
+                )}
               </p>
               <button
                 type="button"
@@ -427,7 +459,9 @@ export default function Home() {
           {phase === "paying" && (
             <div className="flex min-h-[420px] flex-col items-center justify-center gap-4 text-center">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-coral border-t-transparent" />
-              <p className="font-semibold text-ink-soft">Settling your {view?.fee ?? "1"} USDC entry fee on Base Sepolia…</p>
+              <p className="font-semibold text-ink-soft">
+                Settling your {view?.fee ?? "1"} USDC entry fee on Mantle Sepolia…
+              </p>
             </div>
           )}
 
@@ -435,16 +469,21 @@ export default function Home() {
             <div className="flex min-h-[420px] flex-col">
               <div className="mb-10 flex items-center justify-center gap-10">
                 <div className="flex flex-col items-center gap-2">
-                  <div className="text-xs font-bold uppercase tracking-widest text-ink-faint">discard</div>
+                  <div className="text-xs font-bold uppercase tracking-widest text-ink-faint">
+                    discard
+                  </div>
                   <div data-testid="discard-top">
                     <Card card={topCard} disabled />
                   </div>
                   <div className="font-mono text-xs text-ink-faint" data-testid="active-color">
-                    active: {colorName(board.activeColor)} · {view?.direction === -1 ? "↺ ccw" : "↻ cw"}
+                    active: {colorName(board.activeColor)} ·{" "}
+                    {view?.direction === -1 ? "↺ ccw" : "↻ cw"}
                   </div>
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                  <div className="text-xs font-bold uppercase tracking-widest text-ink-faint">draw pile</div>
+                  <div className="text-xs font-bold uppercase tracking-widest text-ink-faint">
+                    draw pile
+                  </div>
                   <button
                     type="button"
                     data-testid="draw"
@@ -462,10 +501,16 @@ export default function Home() {
                   <span
                     data-testid="turn-indicator"
                     className={`text-xs font-bold uppercase tracking-widest rounded-full px-3 py-1 border-[2px] border-ink ${
-                      myTurn ? "bg-coral text-paper shadow-sticker-sm" : "bg-paper-deep text-ink-faint"
+                      myTurn
+                        ? "bg-coral text-paper shadow-sticker-sm"
+                        : "bg-paper-deep text-ink-faint"
                     }`}
                   >
-                    {phase === "done" ? "game over" : myTurn ? "your turn" : "waiting for opponents…"}
+                    {phase === "done"
+                      ? "game over"
+                      : myTurn
+                        ? "your turn"
+                        : "waiting for opponents…"}
                   </span>
                   <button
                     type="button"
@@ -496,7 +541,9 @@ export default function Home() {
 
         <aside className="flex flex-col gap-4">
           <div className="sticker rounded-chunk bg-paper p-5">
-            <h3 className="mb-3 font-display text-sm font-extrabold uppercase tracking-wider text-coral">Payment</h3>
+            <h3 className="mb-3 font-display text-sm font-extrabold uppercase tracking-wider text-coral">
+              Payment
+            </h3>
             {paymentTx ? (
               <div className="space-y-1">
                 <div data-testid="payment-status" className="font-bold text-grass">
@@ -504,7 +551,7 @@ export default function Home() {
                 </div>
                 <a
                   data-testid="payment-tx"
-                  href={`https://sepolia.basescan.org/tx/${paymentTx}`}
+                  href={`https://sepolia.mantlescan.xyz/tx/${paymentTx}`}
                   target="_blank"
                   rel="noreferrer"
                   className="font-mono block break-all text-xs text-amber underline underline-offset-2"
@@ -518,18 +565,23 @@ export default function Home() {
           </div>
 
           <div className="sticker rounded-chunk bg-paper p-5">
-            <h3 className="mb-3 font-display text-sm font-extrabold uppercase tracking-wider text-coral">Game</h3>
+            <h3 className="mb-3 font-display text-sm font-extrabold uppercase tracking-wider text-coral">
+              Game
+            </h3>
             <dl className="space-y-1 text-sm">
               <Row k="Room" v={view?.roomId ?? "—"} />
               <Row k="Seats" v={view ? String(view.seats.length) : "—"} />
               <Row k="Pot" v={short(POT_ADDRESS)} />
-              <Row k="Top card" v={`${colorName(board.topColor)} ${board.topValue <= 9 ? board.topValue : "action"}`} />
+              <Row
+                k="Top card"
+                v={`${colorName(board.topColor)} ${board.topValue <= 9 ? board.topValue : "action"}`}
+              />
               <Row k="Turn" v={short(view?.currentTurn)} />
               <Row k="Winner" v={short(view?.winner)} />
             </dl>
             {view?.shuffleTx && (
               <a
-                href={`https://sepolia.basescan.org/tx/${view.shuffleTx}`}
+                href={`https://sepolia.mantlescan.xyz/tx/${view.shuffleTx}`}
                 target="_blank"
                 rel="noreferrer"
                 className="font-mono mt-2 block break-all text-[10px] text-ink-faint underline underline-offset-2"
@@ -538,12 +590,15 @@ export default function Home() {
               </a>
             )}
             {view?.winner && (
-              <div data-testid="winner-banner" className="mt-3 rounded-xl border-[2px] border-grass bg-grass/10 p-3 text-center text-sm font-bold text-grass">
+              <div
+                data-testid="winner-banner"
+                className="mt-3 rounded-xl border-[2px] border-grass bg-grass/10 p-3 text-center text-sm font-bold text-grass"
+              >
                 WINNER {short(view.winner)}
                 {view.payoutTx && (
                   <a
                     data-testid="payout-tx"
-                    href={`https://sepolia.basescan.org/tx/${view.payoutTx}`}
+                    href={`https://sepolia.mantlescan.xyz/tx/${view.payoutTx}`}
                     target="_blank"
                     rel="noreferrer"
                     className="font-mono mt-1 block break-all text-[10px] font-normal text-amber underline underline-offset-2"
@@ -556,14 +611,27 @@ export default function Home() {
           </div>
 
           <div className="sticker flex-1 rounded-chunk bg-paper p-5">
-            <h3 className="mb-3 font-display text-sm font-extrabold uppercase tracking-wider text-coral">Activity</h3>
+            <h3 className="mb-3 font-display text-sm font-extrabold uppercase tracking-wider text-coral">
+              Activity
+            </h3>
             <div className="font-mono max-h-72 space-y-1 overflow-auto text-[11px] leading-relaxed text-ink-soft">
-              {log.length === 0 ? <div className="text-ink-faint">—</div> : log.map((l, i) => <div key={i} className="break-all">{linkifyTx(l)}</div>)}
+              {log.length === 0 ? (
+                <div className="text-ink-faint">—</div>
+              ) : (
+                log.map((l, i) => (
+                  <div key={i} className="break-all">
+                    {linkifyTx(l)}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
           {error && (
-            <div className="sticker rounded-chunk border-coral/60 bg-coral/10 p-4 text-xs font-semibold text-coral-deep" data-testid="error">
+            <div
+              className="sticker rounded-chunk border-coral/60 bg-coral/10 p-4 text-xs font-semibold text-coral-deep"
+              data-testid="error"
+            >
               {error}
             </div>
           )}
@@ -574,7 +642,9 @@ export default function Home() {
       {wildPick && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 backdrop-blur-sm">
           <div className="sticker rounded-chunk bg-paper p-8 text-center shadow-sticker-lg">
-            <h3 className="mb-5 font-display text-lg font-extrabold text-ink">Pick a color for your wild</h3>
+            <h3 className="mb-5 font-display text-lg font-extrabold text-ink">
+              Pick a color for your wild
+            </h3>
             <div className="flex gap-4">
               {[1, 2, 3, 4].map((col) => (
                 <button
@@ -592,7 +662,11 @@ export default function Home() {
                 />
               ))}
             </div>
-            <button type="button" onClick={() => setWildPick(null)} className="mt-5 text-xs font-semibold text-ink-faint underline underline-offset-2 hover:text-ink-soft">
+            <button
+              type="button"
+              onClick={() => setWildPick(null)}
+              className="mt-5 text-xs font-semibold text-ink-faint underline underline-offset-2 hover:text-ink-soft"
+            >
               cancel
             </button>
           </div>

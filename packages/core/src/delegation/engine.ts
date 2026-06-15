@@ -32,7 +32,7 @@ import type {
   UnsignedDelegation,
 } from "./types.js";
 
-/** USDC has 6 decimals on Base. */
+/** USDC has 6 decimals on Mantle. */
 export function usdcToWei(amount: string): bigint {
   return parseUnits(amount, 6);
 }

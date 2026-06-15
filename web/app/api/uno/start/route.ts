@@ -1,9 +1,9 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import type { Address } from "@steamlink/types";
 import { startGameForHuman } from "@/lib/uno/auto-start";
 import { jsonResponse } from "@/lib/uno/json-response";
+import type { Address } from "@steamlink/types";
 
 /**
  * Start a fresh game seated with the connected player's wallet (seat 0) + the

@@ -3,7 +3,7 @@
  *
  *  - Always runs the suite against a local anvil chain (the zero-funding proof).
  *  - If a funded key is configured in .env (PRIVATE_KEY with gas on the target
- *    chain), ALSO runs the identical suite against Base Sepolia / Base — the real
+ *    chain), ALSO runs the identical suite against Mantle Sepolia / Mantle — the real
  *    target. The player is a freshly generated key that only signs (never funded).
  *
  * Run: pnpm --filter @nexus/scripts live
@@ -91,7 +91,7 @@ async function main() {
 
   const onchain = await runOnChain();
   const onchainFailures = onchain === "skipped" ? 0 : onchain;
-  if (onchain === "skipped") log.info("(Base Sepolia run not executed — see message above.)");
+  if (onchain === "skipped") log.info("(Mantle Sepolia run not executed — see message above.)");
 
   const total = localFailures + onchainFailures;
   log.title(total === 0 ? "LIVE SUITE GREEN" : `LIVE SUITE: ${total} failure(s)`);

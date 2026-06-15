@@ -1,6 +1,6 @@
 # @steamlink/server
 
-> x402 payment middleware for Nexus game endpoints — monetize HTTP routes, settle on Base.
+> x402 payment middleware for Nexus game endpoints — monetize HTTP routes, settle on Mantle.
 
 ## What it is
 
@@ -14,7 +14,7 @@ code never touches a concrete provider. The default `DelegationFacilitator` is
 *delegation-aware*: instead of demanding a fresh payment signature, it redeems the
 player's existing session delegation — the single ERC-7710 grant they signed once
 at `joinRoom()`, bounded by their on-chain budget caveats. Payments settle in USDC
-on **Base**, and the token address is resolved from relayer capabilities (never
+on **Mantle**, and the token address is resolved from relayer capabilities (never
 hardcoded).
 
 The middleware is framework-agnostic at its core, with thin adapters for **Express**
@@ -48,10 +48,10 @@ and `HonoMiddleware` / `HonoContextLike` / `HonoNext`.
 **Facilitator (the x402 seller side)**
 
 - `FacilitatorAdapter` — the port: `challenge(req)` builds the `402` body and mints
-  a single-use nonce; `verify(redemption)` confirms settlement on Base (idempotent
+  a single-use nonce; `verify(redemption)` confirms settlement on Mantle (idempotent
   on the nonce).
 - `DelegationFacilitator` — the default delegation-aware adapter.
-- `DelegationFacilitatorConfig` — its config (capabilities resolver, Base public
+- `DelegationFacilitatorConfig` — its config (capabilities resolver, Mantle public
   client, nonce store, TTL, min confirmations, recipient authorization).
 - `DEFAULT_MIN_CONFIRMATIONS`.
 - Port data types: `PaymentRequest`, `Challenge402`, `Redemption`, `Settlement`.
@@ -79,7 +79,7 @@ import { monetize, DelegationFacilitator } from "@steamlink/server";
 const facilitator = new DelegationFacilitator({
   // capabilities are the source of truth for the token address + targetAddress
   capabilities: () => relayer.getCapabilities(),
-  publicClient, // a viem public client on Base
+  publicClient, // a viem public client on Mantle
 });
 
 const app = express();
@@ -91,7 +91,7 @@ app.post(
     {
       price: "5", // human units, e.g. 5 USDC
       token: "USDC", // resolved to an address from capabilities
-      chain: "base", // Base only
+      chain: "mantle", // Mantle only
       recipient: "0xPotOrSeller", // must be in the payer's budget caveat
       facilitator: "nexus", // use the default DelegationFacilitator from runtime
       reason: "Room entry fee",
@@ -122,4 +122,4 @@ This is the library for putting x402 in front of **your** endpoints. It pairs wi
 - [`@steamlink/relayer`](../relayer) — the 1Shot relayer client whose capabilities
   supply the payment token address and `targetAddress`.
 
-**Base only.** `chain` is strictly `"base"` and settlement happens in USDC on Base.
+**Mantle only.** `chain` is strictly `"mantle"` and settlement happens in USDC on Mantle.

@@ -80,14 +80,14 @@ describe("signDelegation", () => {
   it("produces a signature recoverable to the delegator (EIP-712 roundtrip)", async () => {
     const caveats = buildGameplayCaveats(config, addrs, 1n);
     const signed = await signDelegation(player, {
-      chainId: 84532,
+      chainId: 5003,
       delegationManager: addrs.delegationManager,
       delegate: A("7"),
       caveats,
     });
     expect(signed.delegator).toBe(player.address);
     const recovered = await recoverTypedDataAddress({
-      domain: eip712Domain(84532, addrs.delegationManager),
+      domain: eip712Domain(5003, addrs.delegationManager),
       types: DELEGATION_TYPES,
       primaryType: "Delegation",
       message: {
@@ -105,7 +105,7 @@ describe("signDelegation", () => {
 
   it("encodes a permission context and redeem calldata without throwing", async () => {
     const signed = await signDelegation(player, {
-      chainId: 84532,
+      chainId: 5003,
       delegationManager: addrs.delegationManager,
       delegate: A("7"),
       caveats: buildGameplayCaveats(config, addrs, 1n),

@@ -30,9 +30,9 @@ MetaMask user's **spend** authorization goes through ERC-7715.
 
 ## Addresses
 
-- **Canonical DelegationManager (Base Sepolia, chain 84532):**
+- **Canonical DelegationManager (Mantle Sepolia, chain 5003):**
   `0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3`
-  Resolve it in code with `getSmartAccountsEnvironment(84532).DelegationManager` — never hardcode
+  Resolve it in code with `getSmartAccountsEnvironment(5003).DelegationManager` — never hardcode
   across chains.
 - **Package:** `@metamask/smart-accounts-kit` (the renamed MetaMask Delegation Toolkit).
 
@@ -49,18 +49,18 @@ Extend a viem wallet client with the ERC-7715 provider actions, then request an
 
 ```ts
 import { createWalletClient, custom, parseUnits } from "viem";
-import { baseSepolia } from "viem/chains";
+import { mantleSepoliaTestnet } from "viem/chains";
 import { erc7715ProviderActions } from "@metamask/smart-accounts-kit/actions";
 
 export async function grantSpend(usdc: Address, relayer: Address) {
   const [account] = await window.ethereum.request({ method: "eth_requestAccounts" });
-  const walletClient = createWalletClient({ account, chain: baseSepolia, transport: custom(window.ethereum) })
+  const walletClient = createWalletClient({ account, chain: mantleSepoliaTestnet, transport: custom(window.ethereum) })
     .extend(erc7715ProviderActions());
 
   const now = Math.floor(Date.now() / 1000);
   const grants = await walletClient.requestExecutionPermissions([
     {
-      chainId: 84532,
+      chainId: 5003,
       expiry: now + 7 * 24 * 60 * 60,        // permission valid for 7 days
       to: relayer,                            // the redeemer (your relayer)
       permission: {
@@ -96,7 +96,7 @@ testnet** — the relayer (the `to` of the grant) pays gas directly.
 
 ```ts
 import { createPublicClient, createWalletClient, http, encodeFunctionData, erc20Abi } from "viem";
-import { baseSepolia } from "viem/chains";
+import { mantleSepoliaTestnet } from "viem/chains";
 import {
   contracts, getSmartAccountsEnvironment, createExecution, ExecutionMode,
 } from "@metamask/smart-accounts-kit";
@@ -104,9 +104,9 @@ import {
 export async function chargeViaGrant(opts: {
   context: Hex; relayerAccount: LocalAccount; usdc: Address; recipient: Address; atoms: bigint; rpcUrl: string;
 }) {
-  const env = getSmartAccountsEnvironment(84532);          // canonical manager + encoders
-  const publicClient = createPublicClient({ chain: baseSepolia, transport: http(opts.rpcUrl) });
-  const walletClient = createWalletClient({ account: opts.relayerAccount, chain: baseSepolia, transport: http(opts.rpcUrl) });
+  const env = getSmartAccountsEnvironment(5003);          // canonical manager + encoders
+  const publicClient = createPublicClient({ chain: mantleSepoliaTestnet, transport: http(opts.rpcUrl) });
+  const walletClient = createWalletClient({ account: opts.relayerAccount, chain: mantleSepoliaTestnet, transport: http(opts.rpcUrl) });
 
   const execution = createExecution({
     target: opts.usdc,

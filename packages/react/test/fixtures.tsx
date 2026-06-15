@@ -31,7 +31,7 @@ export const SIGNER = privateKeyToAccount(
 
 export function makeConfig(transport: FakeTransport): NexusClientConfig {
   return {
-    chain: "base-sepolia",
+    chain: "mantle-sepolia",
     world: ADDRESSES.world,
     addresses: ADDRESSES,
     signer: SIGNER,

@@ -1,34 +1,36 @@
 /**
- * Chain constants. Nexus is Base-only by design (see docs/roadmap conventions).
- * Base Sepolia is the default test target; Base mainnet is used only where a
+ * Chain constants. Nexus is Mantle-only by design (see docs/roadmap conventions).
+ * Mantle Sepolia is the default test target; Mantle mainnet is used only where a
  * feature is mainnet-only.
  */
 
 export const CHAINS = {
-  "base-sepolia": {
-    id: 84532,
-    name: "Base Sepolia",
+  "mantle-sepolia": {
+    id: 5003,
+    name: "Mantle Sepolia",
     isTestnet: true,
-    defaultRpcUrl: "https://sepolia.base.org",
-    explorer: "https://sepolia.basescan.org",
-    // Canonical USDC on Base Sepolia (Circle).
-    usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    defaultRpcUrl: "https://rpc.sepolia.mantle.xyz",
+    explorer: "https://sepolia.mantlescan.xyz",
+    // Budget/charge token on Mantle Sepolia. Mantle Sepolia has no canonical
+    // Circle USDC, so the stack deploys its own 6-decimals TestUSDC and records
+    // the address in each game's deployments/mantle-sepolia.json.
+    usdc: "0x189BdF9e9e4FfE4AC0e8eD0479b158843Bcd0cde",
   },
-  base: {
-    id: 8453,
-    name: "Base",
+  mantle: {
+    id: 5000,
+    name: "Mantle",
     isTestnet: false,
-    defaultRpcUrl: "https://mainnet.base.org",
-    explorer: "https://basescan.org",
-    // Canonical native USDC on Base (Circle).
-    usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    defaultRpcUrl: "https://rpc.mantle.xyz",
+    explorer: "https://mantlescan.xyz",
+    // Canonical bridged USDC on Mantle mainnet.
+    usdc: "0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9",
   },
 } as const;
 
 export type ChainKey = keyof typeof CHAINS;
 
 export function isChainKey(v: string): v is ChainKey {
-  return v === "base" || v === "base-sepolia";
+  return v === "mantle" || v === "mantle-sepolia";
 }
 
 export function chainConfig(chain: ChainKey) {

@@ -29,7 +29,7 @@ import { allIndexerSchemas, indexGames } from "./discover.js";
 import type { GatewayRequest, GatewayResponse, Middleware } from "./middleware.js";
 
 export interface BackendOptions {
-  chain: "base";
+  chain: "mantle";
   world: Address;
   /** REQUIRED — DirectRelayer (dev) or OneShotRelayer (prod). */
   relayer?: RelayerAdapter;
@@ -78,7 +78,7 @@ export interface BackendOptions {
  * relayer capabilities and starts the indexer.
  */
 export interface Backend {
-  readonly chain: "base";
+  readonly chain: "mantle";
   readonly world: Address;
   readonly games: Map<string, GameModule>;
   readonly rooms: RoomService;
@@ -109,7 +109,7 @@ export interface Backend {
  * ingestion into the awaiting registry, and returns a `Backend`.
  */
 export function createBackend(opts: BackendOptions): Backend {
-  if (opts.chain !== "base") throw new Error('createBackend: chain must be "base"');
+  if (opts.chain !== "mantle") throw new Error('createBackend: chain must be "mantle"');
 
   const games = indexGames(opts.games);
   const relayer = requireRelayer(opts.relayer);
@@ -180,7 +180,7 @@ export function createBackend(opts: BackendOptions): Backend {
   const middleware: Middleware[] = [createAuthMiddleware(authCfg)];
 
   const backend: Backend = {
-    chain: "base",
+    chain: "mantle",
     world: opts.world,
     games,
     rooms,
@@ -203,7 +203,7 @@ export function createBackend(opts: BackendOptions): Backend {
       backend.capabilities = caps;
       caveatPolicyState.target = caps.targetAddress;
       await indexer.start({
-        chain: "base",
+        chain: "mantle",
         world: opts.world,
         games: allIndexerSchemas(games),
       });

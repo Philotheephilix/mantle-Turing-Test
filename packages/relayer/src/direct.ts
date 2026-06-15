@@ -3,7 +3,7 @@
  * REAL on-chain transactions with a funded viem account, requiring zero external
  * credentials, and is the default relayer for local devnets, the e2e suite, and
  * the example backends (it is the relayer EOA that redeems every move/charge
- * bundle into NexusDelegationManager on Base Sepolia). The production alternative
+ * bundle into NexusDelegationManager on Mantle Sepolia). The production alternative
  * behind the same port is {@link OneShotRelayer} (gas paid in stablecoins,
  * EIP-7702 EOA upgrades, webhook-driven status). The relayer key lives only in
  * the backend — never in a browser bundle.

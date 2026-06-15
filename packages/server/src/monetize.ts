@@ -18,14 +18,14 @@ import type {
 } from "./ports/facilitator.js";
 
 /**
- * Options for {@link monetize} (design §7.3). `chain` is fixed to "base".
+ * Options for {@link monetize} (design §7.3). `chain` is fixed to "mantle".
  * `facilitator` is either the literal "nexus" (selecting a `DelegationFacilitator`
  * supplied via {@link MonetizeRuntime}) or a concrete {@link FacilitatorAdapter}.
  */
 export interface MonetizeOptions {
   price: string;
   token: TokenSymbol;
-  chain: "base";
+  chain: "mantle";
   recipient: Hex;
   facilitator: "nexus" | FacilitatorAdapter;
   /** Optional human label for the charge (passed through to the PaymentRequest). */
@@ -155,7 +155,7 @@ export function statusForError(err: NexusError): number {
 /**
  * The framework-agnostic monetize handler (design §7.3). It:
  *  - issues a 402 with the {@link Challenge402} when no redemption is present;
- *  - verifies a present redemption on Base via the facilitator and, on success,
+ *  - verifies a present redemption on Mantle via the facilitator and, on success,
  *    returns a `pass` with the `Settlement` so the adapter can run the route;
  *  - returns a mapped `reject` on any facilitator failure.
  *
@@ -166,8 +166,8 @@ export async function createMonetizeHandler(
   opts: MonetizeOptions,
   runtime: MonetizeRuntime = {},
 ): Promise<(req: MonetizeRequest) => Promise<MonetizeResult>> {
-  if (opts.chain !== "base") {
-    throw new NexusError("INVALID_CONFIG", `monetize chain must be "base", got ${opts.chain}`);
+  if (opts.chain !== "mantle") {
+    throw new NexusError("INVALID_CONFIG", `monetize chain must be "mantle", got ${opts.chain}`);
   }
   const facilitator = resolveFacilitator(opts, runtime);
 
@@ -222,7 +222,7 @@ export async function createMonetizeHandler(
     // nonce to it (never trust a body-supplied payer).
     const boundRedemption: Redemption = { ...redemption, payer: authPayer };
 
-    // Redemption present → verify on Base and gate the route.
+    // Redemption present → verify on Mantle and gate the route.
     try {
       const settlement = await facilitator.verify(boundRedemption);
       // The on-chain `from` MUST be the authenticated caller — a settlement that

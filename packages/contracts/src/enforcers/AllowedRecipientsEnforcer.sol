@@ -31,7 +31,8 @@ contract AllowedRecipientsEnforcer is CaveatEnforcerBase {
         address
     ) external pure override {
         (address token, address[] memory allowedRecipients) = abi.decode(terms, (address, address[]));
-        (address target,, bytes calldata callData) = _decodeExecution(executionCalldata);
+        (address target, uint256 value, bytes calldata callData) = _decodeExecution(executionCalldata);
+        _requireNoValue(value);
 
         if (target != token) revert RecipientNotAllowed();
         if (callData.length < 4) revert RecipientNotAllowed();

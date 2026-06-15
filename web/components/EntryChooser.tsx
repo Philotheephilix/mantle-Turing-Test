@@ -1,9 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Mascot } from "./Mascot";
 import { fireConfettiFrom } from "@/lib/confetti";
 import type { Mode } from "@/lib/mode";
+import { motion } from "framer-motion";
+import { Mascot } from "./Mascot";
 
 const PANELS: {
   mode: Mode;
@@ -29,7 +29,7 @@ const PANELS: {
     mode: "developer",
     label: "I'm a",
     title: "Developer",
-    blurb: "Define a game as data and Solidity. Deploy to Base, gasless from move one.",
+    blurb: "Define a game as data and Solidity. Deploy to Mantle, gasless from move one.",
     chips: ["defineGame()", "One CLI", "x402"],
     accent: "bg-sky",
     ring: "group-hover:shadow-[10px_10px_0_0_oklch(0.5_0.14_244)]",
@@ -56,7 +56,10 @@ export function EntryChooser({ onChoose }: { onChoose: (m: Mode) => void }) {
           to{" "}
           <span className="relative inline-block">
             <span className="relative z-10">roll?</span>
-            <span className="absolute inset-x-[-4px] bottom-1 z-0 h-4 -rotate-1 rounded-sm bg-amber" aria-hidden />
+            <span
+              className="absolute inset-x-[-4px] bottom-1 z-0 h-4 -rotate-1 rounded-sm bg-amber"
+              aria-hidden
+            />
           </span>
         </h1>
         <p className="mt-4 text-base font-medium text-ink-soft">
@@ -79,24 +82,42 @@ export function EntryChooser({ onChoose }: { onChoose: (m: Mode) => void }) {
             whileTap={{ scale: 0.97 }}
             className={`group sticker relative flex flex-col items-center overflow-hidden rounded-chunk bg-paper p-7 text-center transition-shadow ${p.ring}`}
           >
-            <div className={`absolute -top-16 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full blur-2xl ${p.accent} opacity-20`} aria-hidden />
+            <div
+              className={`absolute -top-16 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full blur-2xl ${p.accent} opacity-20`}
+              aria-hidden
+            />
             <div className="wiggle-hover">
               <Mascot accent={p.mascot} width={120} />
             </div>
-            <span className="mt-2 text-sm font-bold uppercase tracking-wide text-ink-faint">{p.label}</span>
+            <span className="mt-2 text-sm font-bold uppercase tracking-wide text-ink-faint">
+              {p.label}
+            </span>
             <span className="font-display text-3xl font-extrabold">{p.title}</span>
-            <p className="mt-2 max-w-[15rem] text-[15px] leading-relaxed text-ink-soft">{p.blurb}</p>
+            <p className="mt-2 max-w-[15rem] text-[15px] leading-relaxed text-ink-soft">
+              {p.blurb}
+            </p>
             <div className="mt-4 flex flex-wrap justify-center gap-1.5">
               {p.chips.map((c) => (
-                <span key={c} className="rounded-full border-[2px] border-ink bg-paper-deep px-2.5 py-0.5 text-[11px] font-bold">
+                <span
+                  key={c}
+                  className="rounded-full border-[2px] border-ink bg-paper-deep px-2.5 py-0.5 text-[11px] font-bold"
+                >
                   {c}
                 </span>
               ))}
             </div>
-            <span className={`mt-6 inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-bold text-paper ${p.accent} border-[2.5px] border-ink shadow-sticker-sm`}>
+            <span
+              className={`mt-6 inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-bold text-paper ${p.accent} border-[2.5px] border-ink shadow-sticker-sm`}
+            >
               Let&apos;s go
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                <path d="M3 8h9M8 4l4 4-4 4" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M3 8h9M8 4l4 4-4 4"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </span>
           </motion.button>

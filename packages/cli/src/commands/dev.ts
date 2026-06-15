@@ -20,16 +20,16 @@ const DEV_ACCOUNTS = [
 ];
 
 /**
- * `nexus dev` — boot a local Base fork with the full stack pre-deployed, zero
+ * `nexus dev` — boot a local Mantle fork with the full stack pre-deployed, zero
  * credentials. `--dry-run` prints the plan without spawning anything; otherwise
- * it runs codegen, spawns anvil (forking Base unless `--no-fork`), and prints
+ * it runs codegen, spawns anvil (forking Mantle unless `--no-fork`), and prints
  * the dev endpoints. (Backend + mock adapters are documented steps below.)
  */
 export async function devCommand(opts: DevOptions = {}): Promise<void> {
   const cwd = opts.cwd ?? process.cwd();
   const port = opts.port ?? 8080;
   const rpcPort = 8545;
-  const forkUrl = opts.noFork ? undefined : (opts.forkRpc ?? "https://mainnet.base.org");
+  const forkUrl = opts.noFork ? undefined : (opts.forkRpc ?? "https://rpc.mantle.xyz");
 
   log.title("nexus dev");
   log.step("Plan:");
@@ -37,7 +37,7 @@ export async function devCommand(opts: DevOptions = {}): Promise<void> {
   log.info(
     opts.noFork
       ? "2. anvil        — fresh local chain (no upstream state)"
-      : `2. anvil        — fork Base from ${forkUrl}${opts.block ? ` @ block ${opts.block}` : ""}`,
+      : `2. anvil        — fork Mantle from ${forkUrl}${opts.block ? ` @ block ${opts.block}` : ""}`,
   );
   log.info("3. deploy       — World + systems + enforcers onto the fork (forge)");
   log.info("4. mock adapters— relayer=mock secrets=mock-lit vrf=mock (no credentials)");
@@ -66,7 +66,7 @@ export async function devCommand(opts: DevOptions = {}): Promise<void> {
     forkBlockNumber: opts.block,
   });
   log.ok(
-    `anvil up — ${anvil.rpcUrl}${forkUrl ? "  (forked Base, copy-on-read)" : "  (fresh chain)"}`,
+    `anvil up — ${anvil.rpcUrl}${forkUrl ? "  (forked Mantle, copy-on-read)" : "  (fresh chain)"}`,
   );
 
   // 3-5 are the backend/deploy orchestration (Phase 05 dependency). The fork is

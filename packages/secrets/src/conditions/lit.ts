@@ -1,17 +1,17 @@
 /**
  * Compile Nexus {@link AccessCondition}s into Lit's
  * `unifiedAccessControlConditions` (phase-08 Task 3, step 1). Pins `chain` to a
- * Base value on every clause and rejects anything non-Base (convention guard).
+ * Mantle value on every clause and rejects anything non-Mantle (convention guard).
  */
 
 import { NexusError } from "@nexus/types";
 import type { AccessCondition } from "../types.js";
 
-/** Lit's chain slug for each Base chain. */
+/** Lit's chain slug for each Mantle chain. */
 function litChain(chain: AccessCondition["chain"]): string {
-  if (chain === "base") return "base";
-  if (chain === "base-sepolia") return "baseSepolia";
-  throw new NexusError("INVALID_CONFIG", `non-Base chain rejected: ${String(chain)}`);
+  if (chain === "mantle") return "mantle";
+  if (chain === "mantle-sepolia") return "mantleSepoliaTestnet";
+  throw new NexusError("INVALID_CONFIG", `non-Mantle chain rejected: ${String(chain)}`);
 }
 
 /** A single Lit unified-ACC clause (shape Lit expects). */
@@ -37,10 +37,10 @@ export function toUnifiedAccessControlConditions(
   }
   const out: Array<UnifiedAccClause | { operator: "and" }> = [];
   conditions.forEach((c, i) => {
-    if (c.chain !== "base" && c.chain !== "base-sepolia") {
+    if (c.chain !== "mantle" && c.chain !== "mantle-sepolia") {
       throw new NexusError(
         "INVALID_CONFIG",
-        `non-Base condition rejected at seal: chain=${String(c.chain)}`,
+        `non-Mantle condition rejected at seal: chain=${String(c.chain)}`,
       );
     }
     if (i > 0) out.push({ operator: "and" });

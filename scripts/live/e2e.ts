@@ -371,7 +371,7 @@ async function runStages(ctx: E2EContext): Promise<void> {
   const indexer = new InMemoryIndexer();
 
   const backend = createBackend({
-    chain: "base", // the backend's logical chain label; the relayer runs on anvil
+    chain: "mantle", // the backend's logical chain label; the relayer runs on anvil
     world: d.world,
     relayer,
     facilitator,
@@ -382,7 +382,7 @@ async function runStages(ctx: E2EContext): Promise<void> {
   await backend.start();
   // Ensure the indexer registered our exact CounterTable schema (start() reads the
   // mounted game modules; we also register explicitly so the on-chain tableId maps).
-  await indexer.start({ chain: "base", world: d.world as Hex, games: [indexerGameSchema] });
+  await indexer.start({ chain: "mantle", world: d.world as Hex, games: [indexerGameSchema] });
   const app = createGatewayApp(backend);
   log.ok("gateway mounted; driving in-process via app.fetch");
 
@@ -1030,10 +1030,10 @@ async function runSecretsStage(ctx: E2EContext, args: { player: Address }): Prom
   const handBytes = encodeHand(hand);
 
   // Ownership condition: only the owning player may reveal. The default predicate
-  // resolves `ownerOf` from auth.state and matches it against the caller (Base-only).
+  // resolves `ownerOf` from auth.state and matches it against the caller (Mantle-only).
   const conditions: AccessCondition[] = [
     {
-      chain: "base",
+      chain: "mantle",
       method: "ownerOf",
       returns: { comparator: "=", value: ":userAddress" },
     },

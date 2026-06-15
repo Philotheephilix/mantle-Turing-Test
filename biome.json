@@ -14,8 +14,16 @@
     "enabled": true,
     "rules": {
       "recommended": true,
-      "suspicious": { "noExplicitAny": "warn" },
-      "style": { "noNonNullAssertion": "off" }
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noArrayIndexKey": "warn"
+      },
+      "style": { "noNonNullAssertion": "off" },
+      "a11y": {
+        "noSvgWithoutTitle": "warn",
+        "useButtonType": "warn"
+      },
+      "correctness": { "useExhaustiveDependencies": "warn" }
     }
   },
   "organizeImports": { "enabled": true }

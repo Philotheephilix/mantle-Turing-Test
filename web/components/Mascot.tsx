@@ -66,7 +66,13 @@ export function Mascot({
       whileHover={{ scaleX: 1.08, scaleY: 0.92 }}
       transition={{ type: "spring", stiffness: 320, damping: 12 }}
     >
-      <svg ref={ref} viewBox="0 0 140 150" width={width} role="img" aria-label="Pip, the Steamlink mascot">
+      <svg
+        ref={ref}
+        viewBox="0 0 140 150"
+        width={width}
+        role="img"
+        aria-label="Pip, the Steamlink mascot"
+      >
         <defs>
           <linearGradient id={`body-${gid}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={c.light} />
@@ -84,7 +90,11 @@ export function Mascot({
           stroke={INK}
           strokeWidth="2.5"
           strokeLinejoin="round"
-          style={{ transformBox: "fill-box", transformOrigin: "center", animation: "twinkle 3s ease-in-out infinite" }}
+          style={{
+            transformBox: "fill-box",
+            transformOrigin: "center",
+            animation: "twinkle 3s ease-in-out infinite",
+          }}
         />
 
         {/* feet */}
@@ -102,7 +112,13 @@ export function Mascot({
         <ellipse cx="52" cy="60" rx="20" ry="14" fill="oklch(0.99 0.005 90 / 0.35)" />
 
         {/* eyes: sclera + tracking pupils, with a blink */}
-        <g style={{ transformBox: "fill-box", transformOrigin: "center", animation: "blink 4.6s infinite" }}>
+        <g
+          style={{
+            transformBox: "fill-box",
+            transformOrigin: "center",
+            animation: "blink 4.6s infinite",
+          }}
+        >
           <circle cx="54" cy="82" r="12" fill={SCLERA} stroke={INK} strokeWidth="2" />
           <circle cx="86" cy="82" r="12" fill={SCLERA} stroke={INK} strokeWidth="2" />
           <motion.g style={{ x: sx, y: sy }}>
@@ -117,7 +133,13 @@ export function Mascot({
         <ellipse cx="38" cy="98" rx="6.5" ry="4.5" fill="oklch(0.62 0.2 25 / 0.5)" />
         <ellipse cx="102" cy="98" rx="6.5" ry="4.5" fill="oklch(0.62 0.2 25 / 0.5)" />
         {/* smile */}
-        <path d="M62 100 q8 8 16 0" stroke={INK} strokeWidth="3.2" strokeLinecap="round" fill="none" />
+        <path
+          d="M62 100 q8 8 16 0"
+          stroke={INK}
+          strokeWidth="3.2"
+          strokeLinecap="round"
+          fill="none"
+        />
       </svg>
     </motion.div>
   );

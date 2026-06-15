@@ -16,7 +16,7 @@ import {
 async function boot(): Promise<{ backend: Backend; relayer: FakeRelayer }> {
   const relayer = new FakeRelayer();
   const backend = createBackend({
-    chain: "base",
+    chain: "mantle",
     world: TARGET,
     relayer,
     games: [uno],

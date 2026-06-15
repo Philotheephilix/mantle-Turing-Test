@@ -1,10 +1,10 @@
 # @steamlink/core
 
-> The Nexus game-engine core: define a game as data + logic, one delegation, gasless moves on Base.
+> The Nexus game-engine core: define a game as data + logic, one delegation, gasless moves on Mantle.
 
 ## What it is
 
-Nexus is a fully onchain, turn-based game engine for **Base**. The core idea: a
+Nexus is a fully onchain, turn-based game engine for **Mantle**. The core idea: a
 player signs **one** ERC-7710 delegation when they join a room, and the engine
 redeems that single signature for everything after — gasless moves (no wallet
 popups) and x402 payments bounded by on-chain spend caps. The wallet is never
@@ -17,7 +17,7 @@ via codegen, compiles the single delegation's two caveat groups into concrete
 on-chain caveats, signs it (EIP-712), and builds the redeem/move/charge calldata
 the relayer submits.
 
-**Base only.** There is no multi-chain abstraction; the budget token is USDC
+**Mantle only.** There is no multi-chain abstraction; the budget token is USDC
 (6 decimals).
 
 ## Install
@@ -106,7 +106,7 @@ const caveats = [
 ];
 
 const signed = await signDelegation(playerAccount /* viem LocalAccount */, {
-  chainId: 8453,
+  chainId: 5000,
   delegationManager: addrs.delegationManager,
   delegate: relayerAddress, // the redeemer; zero address = any redeemer
   caveats,
@@ -201,4 +201,4 @@ concrete provider:
 - **@steamlink/cli** — scaffold, deploy, migrate, local devnet.
 - **@steamlink/types** — shared branded types and the canonical `NexusError` / error codes.
 
-**Base only.**
+**Mantle only.**
