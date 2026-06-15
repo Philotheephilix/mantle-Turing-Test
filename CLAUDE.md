@@ -81,6 +81,8 @@ When wiring `--filter`, use the `@nexus/*` name from each `package.json`; when r
 
 ### `web/` — the unified Next.js mono-app (the reference games + site)
 
+> Full navigation map for this app: [`web/AGENTS.md`](web/AGENTS.md) (per-game file anatomy + request flow).
+
 The standalone `examples/uno` and `examples/monopoly` apps were consolidated into a single Next.js app under `web/`. Per-game code is namespaced:
 
 - `web/lib/<game>/` — game logic (e.g. `uno`, `monopoly`): the `defineGame` definition, the authoritative rules state machine, the server-only authority/engine, browser-safe delegation signing, signer abstraction.
