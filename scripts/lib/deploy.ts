@@ -38,6 +38,18 @@ export function deployNexus(p: DeployParams): DeployedNexus {
   // NOT create the directory — ensure it exists (fresh CI checkouts have none).
   mkdirSync(resolve(CONTRACTS, "deployments"), { recursive: true });
 
+  // Gas flags are chain-aware. Local anvil (31337) is happy with the node's
+  // estimate, so we skip simulation for speed. Mantle (5003 / 5000) inflates
+  // contract-creation gas and its public RPC `eth_estimateGas` FAILS on large
+  // deploys — so there we let Foundry simulate locally to derive gas, force
+  // legacy pricing, add headroom over the simulated gas, and send one tx at a
+  // time to avoid sequencer nonce races. Without this, a live Mantle deploy
+  // reverts with `-32000: contract creation code storage out of gas`.
+  const isLocalAnvil = p.chainId === 31337;
+  const gasFlags = isLocalAnvil
+    ? ["--skip-simulation"]
+    : ["--legacy", "--gas-estimate-multiplier", "200", "--slow"];
+
   execFileSync(
     FORGE,
     [
@@ -48,7 +60,7 @@ export function deployNexus(p: DeployParams): DeployedNexus {
       "--private-key",
       p.deployerKey,
       "--broadcast",
-      "--skip-simulation",
+      ...gasFlags,
     ],
     {
       cwd: CONTRACTS,

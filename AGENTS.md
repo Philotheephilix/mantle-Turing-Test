@@ -161,9 +161,10 @@ pnpm --filter @nexus/scripts exec tsx live/local-integration.ts
 
 ## Deployments (Mantle Sepolia · chain 5003)
 
-Canonical record: `packages/contracts/deployments/5003.json`; per-game copies in
-`web/lib/<game>/deployments/mantle-sepolia.json`. Explorer
-[sepolia.mantlescan.xyz](https://sepolia.mantlescan.xyz), RPC
+Committed source of truth: the per-game `web/lib/<game>/deployments/mantle-sepolia.json`
+(tracked in git). `packages/contracts/deployments/5003.json` is the **regenerated
+deploy artifact** written by `DeployFull` and is **gitignored** (not in a fresh
+clone). Explorer [sepolia.mantlescan.xyz](https://sepolia.mantlescan.xyz), RPC
 `https://rpc.sepolia.mantle.xyz`.
 
 | Contract | Address |

@@ -120,8 +120,11 @@ into our tooling:
    `scripts/lib/deploy.ts:deployNexus` `mkdir`s `packages/contracts/deployments`
    first, since a fresh checkout has no such directory.
 
-The canonical deployed addresses live in `packages/contracts/deployments/5003.json`
-and per-game copies in `web/lib/<game>/deployments/mantle-sepolia.json`.
+The committed deployed addresses live in the per-game
+`web/lib/<game>/deployments/mantle-sepolia.json` (tracked).
+`packages/contracts/deployments/5003.json` is the regenerated `DeployFull` output
+and is **gitignored** — a fresh deploy (or a live test run) rewrites it, so treat
+the web JSONs as the source of truth.
 
 ## How Mantle's design interacts with Nexus's invariants
 
